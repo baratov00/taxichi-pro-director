@@ -2,6 +2,9 @@
 const load=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
 const OWNER_EMAIL='baratov329@mail.ru';
 const OWNER_DEFAULT_PASSWORD='razoqiy123';
+const ADMIN_SITE_URL='https://admin.taxichi.pro/';
+const SUPABASE_URL='https://qquvbedufztponyxneqa.supabase.co',SUPABASE_KEY='sb_publishable_8lZ9AfMvjZOx1Xz6JTlNFg_uKK0qjr8',API_BASE=SUPABASE_URL+'/rest/v1',API_HEADERS={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY};
+const DISPATCHERS_TABLE='taxichi_pro_dispatchers';
 const DEFAULT_DISPATCHERS=[{id:'demo',name:'Иванова Мария',phone:'+7 999 999-77-42',login:'admin',password:'1234',active:true}];
 const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false});
 let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
@@ -11,7 +14,28 @@ const adminDrivers=id=>load(adminStorageKey(id,'taxichiProDrivers'),id==='demo'?
 const adminWaybills=id=>load(adminStorageKey(id,'taxichiProWaybills'),id==='demo'?load('taxichiProWaybills',[]):[]);
 let editingDispatcherId='',ownerPage='admins';
 
-function saveDispatchers(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
+function saveDispatchersLocal(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
+function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,updated_at:new Date().toISOString()}}
+async function remoteDispatchers(){
+  const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS,cache:'no-store'});
+  if(!response.ok)throw new Error(await response.text());
+  return (await response.json()).map(normalizeDispatcher);
+}
+async function saveDispatcherRemote(d){
+  const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?on_conflict=id`,{method:'POST',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(dispatcherPayload(d))});
+  if(!response.ok)throw new Error(await response.text());
+}
+async function deleteDispatcherRemote(id){
+  const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...API_HEADERS,'Prefer':'return=minimal'}});
+  if(!response.ok)throw new Error(await response.text());
+}
+async function loadDispatchersRemote(){
+  try{
+    const remote=await remoteDispatchers();
+    if(remote.length){dispatchers=remote;saveDispatchersLocal();render()}
+  }catch(error){console.warn('Не удалось загрузить админов из Supabase',error)}
+}
+async function saveDispatchers(){saveDispatchersLocal();try{await Promise.all(dispatchers.map(saveDispatcherRemote))}catch(error){console.warn('Не удалось сохранить админов в Supabase',error)}}
 function ownerAccount(){const saved=load('taxichiProOwnerAccount',null);return {email:OWNER_EMAIL,password:saved?.password||OWNER_DEFAULT_PASSWORD}}
 function saveOwnerPassword(password){localStorage.setItem('taxichiProOwnerAccount',JSON.stringify({email:OWNER_EMAIL,password}))}
 function formatRuPhone(raw){const rawDigits=String(raw||'').replace(/\D/g,''),digits=(rawDigits.startsWith('8')?'7'+rawDigits.slice(1):rawDigits.startsWith('7')?rawDigits:'7'+rawDigits).slice(0,11),n=digits.slice(1),a=n.slice(0,3),b=n.slice(3,6),c=n.slice(6,8),d=n.slice(8,10);return '+7'+(a?' '+a:'')+(b?' '+b:'')+(c?'-'+c:'')+(d?'-'+d:'')}
@@ -89,15 +113,15 @@ function openAdminCabinet(id){
   if(!d)return;
   if(!d.active){alert('Сначала откройте доступ этому админу');return}
   sessionStorage.setItem('taxichiDispatcherSession',d.id);
-  window.open(`index.html?admin=${encodeURIComponent(d.id)}`,'_blank');
+  window.open(`${ADMIN_SITE_URL}?admin=${encodeURIComponent(d.id)}`,'_blank');
 }
 
 const dialog=$('#dispatcherDialog'),form=$('#dispatcherForm');
 $('#addDispatcher').onclick=()=>openDispatcher('');
 $('.close').onclick=$('.cancel').onclick=()=>dialog.close();
 form.phone.oninput=()=>{form.phone.value=formatRuPhone(form.phone.value)};
-$('.dispatcher-dialog-delete').onclick=()=>{if(editingDispatcherId&&deleteDispatcher(editingDispatcherId))dialog.close()};
-$('.dispatcher-dialog-toggle').onclick=()=>{if(editingDispatcherId){toggleDispatcher(editingDispatcherId);const d=dispatchers.find(x=>x.id===editingDispatcherId);if(d)fillDispatcherForm(d)}};
+$('.dispatcher-dialog-delete').onclick=async()=>{if(editingDispatcherId&&await deleteDispatcher(editingDispatcherId))dialog.close()};
+$('.dispatcher-dialog-toggle').onclick=async()=>{if(editingDispatcherId){await toggleDispatcher(editingDispatcherId);const d=dispatchers.find(x=>x.id===editingDispatcherId);if(d)fillDispatcherForm(d)}};
 
 function openDispatcher(id=''){
   editingDispatcherId=id;
@@ -117,7 +141,7 @@ function fillDispatcherForm(d){
   $('.dispatcher-dialog-toggle').textContent=d.active?'Закрыть доступ':'Открыть доступ';
 }
 
-form.onsubmit=e=>{
+form.onsubmit=async e=>{
   e.preventDefault();
   const d=Object.fromEntries(new FormData(e.target));
   d.phone=formatRuPhone(d.phone);
@@ -130,25 +154,29 @@ form.onsubmit=e=>{
     d.id='disp-'+Date.now();
     dispatchers.push(d);
   }
-  saveDispatchers();
+  await saveDispatcherRemote(d).catch(error=>console.warn('Не удалось сохранить админа в Supabase',error));
+  saveDispatchersLocal();
   dialog.close();
   render();
 };
 
-function toggleDispatcher(id){
+async function toggleDispatcher(id){
   const d=dispatchers.find(x=>x.id===id);
   if(!d)return;
   d.active=!d.active;
-  saveDispatchers();
+  saveDispatchersLocal();
+  await saveDispatcherRemote(d).catch(error=>console.warn('Не удалось обновить доступ в Supabase',error));
   render();
 }
 
-function deleteDispatcher(id){
+async function deleteDispatcher(id){
   const d=dispatchers.find(x=>x.id===id);
   if(!d)return false;
   if(!confirm(`Удалить доступ админа ${d.name}?\n\nВодители не удалятся, удалится только вход в админский кабинет.`))return false;
   dispatchers=dispatchers.filter(x=>x.id!==id);
-  saveDispatchers();
+  saveDispatchersLocal();
+  await deleteDispatcherRemote(id).catch(error=>console.warn('Не удалось удалить админа из Supabase',error));
   render();
   return true;
 }
+loadDispatchersRemote();

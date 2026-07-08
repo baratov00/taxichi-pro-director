@@ -1,0 +1,154 @@
+﻿const $=s=>document.querySelector(s);
+const load=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
+const OWNER_EMAIL='baratov329@mail.ru';
+const OWNER_DEFAULT_PASSWORD='razoqiy123';
+const DEFAULT_DISPATCHERS=[{id:'demo',name:'Иванова Мария',phone:'+7 999 999-77-42',login:'admin',password:'1234',active:true}];
+const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false});
+let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
+if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchers()}
+const adminStorageKey=(id,key)=>`taxichiProAdmin:${id}:${key}`;
+const adminDrivers=id=>load(adminStorageKey(id,'taxichiProDrivers'),id==='demo'?load('taxichiProDrivers',[]):[]);
+const adminWaybills=id=>load(adminStorageKey(id,'taxichiProWaybills'),id==='demo'?load('taxichiProWaybills',[]):[]);
+let editingDispatcherId='',ownerPage='admins';
+
+function saveDispatchers(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
+function ownerAccount(){const saved=load('taxichiProOwnerAccount',null);return {email:OWNER_EMAIL,password:saved?.password||OWNER_DEFAULT_PASSWORD}}
+function saveOwnerPassword(password){localStorage.setItem('taxichiProOwnerAccount',JSON.stringify({email:OWNER_EMAIL,password}))}
+function formatRuPhone(raw){const rawDigits=String(raw||'').replace(/\D/g,''),digits=(rawDigits.startsWith('8')?'7'+rawDigits.slice(1):rawDigits.startsWith('7')?rawDigits:'7'+rawDigits).slice(0,11),n=digits.slice(1),a=n.slice(0,3),b=n.slice(3,6),c=n.slice(6,8),d=n.slice(8,10);return '+7'+(a?' '+a:'')+(b?' '+b:'')+(c?'-'+c:'')+(d?'-'+d:'')}
+function enter(){sessionStorage.setItem('taxichiOwnerSession','yes');$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');render()}
+
+$('#ownerLoginForm').onsubmit=e=>{
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(e.target)),account=ownerAccount();
+  if(String(d.email||'').trim().toLowerCase()===account.email&&d.password===account.password){
+    $('#ownerError').textContent='';
+    enter();
+  }else $('#ownerError').textContent='Неверный логин или пароль';
+};
+if(sessionStorage.getItem('taxichiOwnerSession')==='yes')enter();
+$('#ownerLogout').onclick=()=>{sessionStorage.removeItem('taxichiOwnerSession');$('#ownerApp').classList.add('hidden');$('#ownerLogin').classList.remove('hidden')};
+document.querySelectorAll('[data-owner-page]').forEach(b=>b.onclick=()=>{ownerPage=b.dataset.ownerPage;render()});
+
+const resetDialog=$('#ownerResetDialog'),resetForm=$('#ownerResetForm');
+$('#forgotOwnerPassword').onclick=()=>{resetForm.reset();resetForm.elements.email.value=OWNER_EMAIL;$('#ownerResetError').textContent='';resetDialog.showModal()};
+$('.reset-close').onclick=$('.reset-cancel').onclick=()=>resetDialog.close();
+resetForm.onsubmit=e=>{
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(e.target));
+  if(String(d.email||'').trim().toLowerCase()!==OWNER_EMAIL){$('#ownerResetError').textContent='Эта почта не привязана к директорскому кабинету';return}
+  saveOwnerPassword(d.password);
+  resetDialog.close();
+  $('#ownerError').textContent='Пароль обновлен. Войдите с новым паролем.';
+};
+
+function render(){
+  document.querySelectorAll('[data-owner-page]').forEach(b=>b.classList.toggle('active',b.dataset.ownerPage===ownerPage));
+  $('#ownerTitle').textContent=ownerPage==='analytics'?'Аналитика':'Админы';
+  $('#ownerSubtitle').textContent=ownerPage==='analytics'?'Сводка по всем админским кабинетам':'Доступы для админского кабинета';
+  $('#addDispatcher').style.display=ownerPage==='admins'?'inline-flex':'none';
+  $('#dispatcherGrid').classList.toggle('hidden',ownerPage!=='admins');
+  $('#ownerAnalytics').classList.toggle('hidden',ownerPage!=='analytics');
+  if(ownerPage==='analytics'){renderOwnerAnalytics();return}
+  $('#dispatcherGrid').innerHTML=dispatchers.length?dispatchers.map(dispatcherCard).join(''):'<article class="card empty-card">Админы ещё не добавлены. Нажмите «Добавить админа», чтобы выдать первый доступ.</article>';
+  document.querySelectorAll('.dispatcher-open').forEach(b=>b.onclick=()=>openAdminCabinet(b.dataset.id));
+  document.querySelectorAll('.dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
+  document.querySelectorAll('.dispatcher-details').forEach(b=>b.onclick=()=>showAdminDetails(b.dataset.id));
+}
+
+function dispatcherCard(d){
+  const count=adminDrivers(d.id).length;
+  return `<article class="card dispatcher-card ${d.active?'':'disabled'}">
+    <div class="dispatcher-main">
+      <div class="identity"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><button class="admin-name dispatcher-details" data-id="${d.id}" type="button"><b>${d.name}</b><small>${d.phone||'телефон не указан'}</small></button></div>
+      <div class="access"><div><small>Логин</small><b>${d.login}</b></div><div><small>Водителей</small><b>${count}</b></div></div>
+      <span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>
+    </div>
+    <div class="dispatcher-actions">
+      <button class="secondary dispatcher-open" data-id="${d.id}" ${d.active?'':'disabled'}>Открыть кабинет</button>
+      <button class="secondary dispatcher-edit" data-id="${d.id}">Изменить</button>
+    </div>
+  </article>`;
+}
+
+function showAdminDetails(id){
+  const d=dispatchers.find(x=>x.id===id);if(!d)return;
+  let details=document.querySelector('#adminDetailsDialog');
+  if(!details){details=document.createElement('dialog');details.id='adminDetailsDialog';details.className='admin-details-dialog';document.body.append(details)}
+  details.innerHTML=`<button class="close" type="button">×</button><h2>${d.name||'Админ'}</h2><p class="muted">Данные админского доступа</p><div class="admin-details-grid"><div><small>Почта</small><b>${d.email||d.login||'—'}</b></div><div><small>Телефон</small><b>${d.phone||'—'}</b></div><div><small>Логин</small><b>${d.login||'—'}</b></div></div>`;
+  details.querySelector('.close').onclick=()=>details.close();
+  details.showModal();
+}
+function renderOwnerAnalytics(){
+  const rows=dispatchers.map(d=>{const ds=adminDrivers(d.id),wb=adminWaybills(d.id),open=wb.filter(w=>w.status==='Открыто').length,closed=wb.filter(w=>w.status==='Закрыто').length;return {d,drivers:ds.length,waybills:wb.length,open,closed}});
+  const totals=rows.reduce((a,r)=>({drivers:a.drivers+r.drivers,waybills:a.waybills+r.waybills,open:a.open+r.open,closed:a.closed+r.closed}),{drivers:0,waybills:0,open:0,closed:0});
+  $('#ownerAnalytics').innerHTML=`<div class="analytics-grid"><article><small>Админов</small><b>${dispatchers.length}</b></article><article><small>Водителей</small><b>${totals.drivers}</b></article><article><small>Открытые ЭПЛ</small><b>${totals.open}</b></article><article><small>Завершённые</small><b>${totals.closed}</b></article></div><table class="analytics-table"><thead><tr><th>Админ</th><th>Водители</th><th>Открытые</th><th>Завершённые</th><th>Всего ЭПЛ</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.d.name}</b><span>${r.d.login}</span></td><td>${r.drivers}</td><td>${r.open}</td><td>${r.closed}</td><td>${r.waybills}</td></tr>`).join('')||'<tr><td colspan="5">Данных пока нет</td></tr>'}</tbody></table>`;
+}
+
+function openAdminCabinet(id){
+  const d=dispatchers.find(x=>x.id===id);
+  if(!d)return;
+  if(!d.active){alert('Сначала откройте доступ этому админу');return}
+  sessionStorage.setItem('taxichiDispatcherSession',d.id);
+  window.open(`index.html?admin=${encodeURIComponent(d.id)}`,'_blank');
+}
+
+const dialog=$('#dispatcherDialog'),form=$('#dispatcherForm');
+$('#addDispatcher').onclick=()=>openDispatcher('');
+$('.close').onclick=$('.cancel').onclick=()=>dialog.close();
+form.phone.oninput=()=>{form.phone.value=formatRuPhone(form.phone.value)};
+$('.dispatcher-dialog-delete').onclick=()=>{if(editingDispatcherId&&deleteDispatcher(editingDispatcherId))dialog.close()};
+$('.dispatcher-dialog-toggle').onclick=()=>{if(editingDispatcherId){toggleDispatcher(editingDispatcherId);const d=dispatchers.find(x=>x.id===editingDispatcherId);if(d)fillDispatcherForm(d)}};
+
+function openDispatcher(id=''){
+  editingDispatcherId=id;
+  form.reset();
+  form.elements.active.value='true';
+  $('#dispatcherDialogTitle').textContent=id?'Изменить админа':'Новый админ';
+  const d=dispatchers.find(x=>x.id===id);
+  if(d)fillDispatcherForm(d);
+  const editOnly=!!id;
+  $('.dispatcher-dialog-delete').style.display=editOnly?'inline-flex':'none';
+  $('.dispatcher-dialog-toggle').style.display=editOnly?'inline-flex':'none';
+  dialog.showModal();
+}
+
+function fillDispatcherForm(d){
+  Object.entries(d).forEach(([k,v])=>{if(form.elements[k])form.elements[k].value=String(v)});
+  $('.dispatcher-dialog-toggle').textContent=d.active?'Закрыть доступ':'Открыть доступ';
+}
+
+form.onsubmit=e=>{
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(e.target));
+  d.phone=formatRuPhone(d.phone);
+  d.active=d.active==='true';
+  if(dispatchers.some(x=>x.login===d.login&&x.id!==editingDispatcherId)){alert('Такой логин уже используется');return}
+  if(editingDispatcherId){
+    d.id=editingDispatcherId;
+    dispatchers=dispatchers.map(x=>x.id===editingDispatcherId?d:x);
+  }else{
+    d.id='disp-'+Date.now();
+    dispatchers.push(d);
+  }
+  saveDispatchers();
+  dialog.close();
+  render();
+};
+
+function toggleDispatcher(id){
+  const d=dispatchers.find(x=>x.id===id);
+  if(!d)return;
+  d.active=!d.active;
+  saveDispatchers();
+  render();
+}
+
+function deleteDispatcher(id){
+  const d=dispatchers.find(x=>x.id===id);
+  if(!d)return false;
+  if(!confirm(`Удалить доступ админа ${d.name}?\n\nВодители не удалятся, удалится только вход в админский кабинет.`))return false;
+  dispatchers=dispatchers.filter(x=>x.id!==id);
+  saveDispatchers();
+  render();
+  return true;
+}

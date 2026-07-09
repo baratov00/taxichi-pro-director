@@ -5,7 +5,9 @@ const OWNER_DEFAULT_PASSWORD='razoqiy123';
 const ADMIN_SITE_URL='https://admin.taxichi.pro/';
 const SUPABASE_URL='https://qquvbedufztponyxneqa.supabase.co',SUPABASE_KEY='sb_publishable_8lZ9AfMvjZOx1Xz6JTlNFg_uKK0qjr8',API_BASE=SUPABASE_URL+'/rest/v1',API_HEADERS={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Accept-Profile':'public','Content-Profile':'public'};
 const DISPATCHERS_TABLE='taxichi_pro_dispatchers';
+const DIRECTORS_TABLE='taxichi_pro_directors';
 const DEFAULT_DISPATCHERS=[{id:'demo',name:'Иванова Мария',phone:'+7 999 999-77-42',login:'admin',password:'1234',active:true}];
+const DEFAULT_DIRECTORS=[{id:'main',name:'Асадбек Баратов',email:OWNER_EMAIL,password:OWNER_DEFAULT_PASSWORD,active:true,can_manage_directors:true}];
 const PAYMENT_MODES={
   free_park:'Для таксопарков',
   subscription:'Платеж по подписке'
@@ -19,15 +21,20 @@ const normalizePaymentSettings=value=>{
   return value||{};
 };
 const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
+const normalizeDirector=(d,i)=>({id:d.id||`director-${i+1}`,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:d.can_manage_directors===true});
 let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
 if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchers()}
+let directors=(load('taxichiProDirectors',DEFAULT_DIRECTORS)||DEFAULT_DIRECTORS).map(normalizeDirector);
+let currentDirector=null;
 const adminStorageKey=(id,key)=>`taxichiProAdmin:${id}:${key}`;
 const adminDrivers=id=>load(adminStorageKey(id,'taxichiProDrivers'),id==='demo'?load('taxichiProDrivers',[]):[]);
 const adminWaybills=id=>load(adminStorageKey(id,'taxichiProWaybills'),id==='demo'?load('taxichiProWaybills',[]):[]);
-let editingDispatcherId='',ownerPage='admins';
+let editingDispatcherId='',editingDirectorId='',ownerPage='admins';
 
 function saveDispatchersLocal(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
 function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
+function saveDirectorsLocal(){localStorage.setItem('taxichiProDirectors',JSON.stringify(directors))}
+function directorPayload(d){return {id:d.id,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:d.can_manage_directors===true,updated_at:new Date().toISOString()}}
 async function remoteDispatchers(){
   const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS,cache:'no-store'});
   if(!response.ok)throw new Error(await response.text());
@@ -48,20 +55,27 @@ async function loadDispatchersRemote(){
   }catch(error){console.warn('Не удалось загрузить админов из Supabase',error)}
 }
 async function saveDispatchers(){saveDispatchersLocal();try{await Promise.all(dispatchers.map(saveDispatcherRemote))}catch(error){console.warn('Не удалось сохранить админов в Supabase',error)}}
+async function remoteDirectors(){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS,cache:'no-store'});if(!response.ok)throw new Error(await response.text());return (await response.json()).map(normalizeDirector)}
+async function saveDirectorRemote(d){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?on_conflict=id`,{method:'POST',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(directorPayload(d))});if(!response.ok)throw new Error(await response.text())}
+async function deleteDirectorRemote(id){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...API_HEADERS,'Prefer':'return=minimal'}});if(!response.ok)throw new Error(await response.text())}
+async function loadDirectorsRemote(){try{const remote=await remoteDirectors();if(remote.length){directors=remote;saveDirectorsLocal()}}catch(error){console.warn('Не удалось загрузить директоров из Supabase',error)}}
+async function ensureMainDirector(){let main=directors.find(d=>d.email===OWNER_EMAIL)||DEFAULT_DIRECTORS[0];main={...main,id:main.id||'main',name:main.name||'Асадбек Баратов',email:OWNER_EMAIL,password:main.password||OWNER_DEFAULT_PASSWORD,active:true,can_manage_directors:true};directors=[main,...directors.filter(d=>d.email!==OWNER_EMAIL&&d.id!==main.id)];saveDirectorsLocal();await saveDirectorRemote(main).catch(error=>console.warn('Не удалось сохранить главного директора',error))}
 function ownerAccount(){const saved=load('taxichiProOwnerAccount',null);return {email:OWNER_EMAIL,password:saved?.password||OWNER_DEFAULT_PASSWORD}}
 function saveOwnerPassword(password){localStorage.setItem('taxichiProOwnerAccount',JSON.stringify({email:OWNER_EMAIL,password}))}
 function formatRuPhone(raw){const rawDigits=String(raw||'').replace(/\D/g,''),digits=(rawDigits.startsWith('8')?'7'+rawDigits.slice(1):rawDigits.startsWith('7')?rawDigits:'7'+rawDigits).slice(0,11),n=digits.slice(1),a=n.slice(0,3),b=n.slice(3,6),c=n.slice(6,8),d=n.slice(8,10);return '+7'+(a?' '+a:'')+(b?' '+b:'')+(c?'-'+c:'')+(d?'-'+d:'')}
-function enter(){sessionStorage.setItem('taxichiOwnerSession','yes');$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');render()}
+function enter(director){currentDirector=director||directors[0]||DEFAULT_DIRECTORS[0];sessionStorage.setItem('taxichiOwnerSession',currentDirector.email);$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');document.querySelector('.account b').textContent=currentDirector.name||'Директор';document.querySelector('.account span').textContent=currentDirector.can_manage_directors?'Главный директор':'Директор';render()}
 
-$('#ownerLoginForm').onsubmit=e=>{
+$('#ownerLoginForm').onsubmit=async e=>{
   e.preventDefault();
-  const d=Object.fromEntries(new FormData(e.target)),account=ownerAccount();
-  if(String(d.email||'').trim().toLowerCase()===account.email&&d.password===account.password){
+  await loadDirectorsRemote();await ensureMainDirector();
+  const d=Object.fromEntries(new FormData(e.target)),email=String(d.email||'').trim().toLowerCase();
+  const director=directors.find(x=>x.email===email&&x.password===d.password&&x.active!==false);
+  if(director){
     $('#ownerError').textContent='';
-    enter();
+    enter(director);
   }else $('#ownerError').textContent='Неверный логин или пароль';
 };
-if(sessionStorage.getItem('taxichiOwnerSession')==='yes')enter();
+const savedOwnerSession=sessionStorage.getItem('taxichiOwnerSession');if(savedOwnerSession){currentDirector=directors.find(d=>d.email===savedOwnerSession)||directors[0];enter(currentDirector)}
 $('#ownerLogout').onclick=()=>{sessionStorage.removeItem('taxichiOwnerSession');$('#ownerApp').classList.add('hidden');$('#ownerLogin').classList.remove('hidden')};
 document.querySelectorAll('[data-owner-page]').forEach(b=>b.onclick=()=>{ownerPage=b.dataset.ownerPage;render()});
 
@@ -79,18 +93,27 @@ resetForm.onsubmit=e=>{
 
 function render(){
   document.querySelectorAll('[data-owner-page]').forEach(b=>b.classList.toggle('active',b.dataset.ownerPage===ownerPage));
-  $('#ownerTitle').textContent=ownerPage==='analytics'?'Аналитика':ownerPage==='payments'?'Платежи':'Админы';
-  $('#ownerSubtitle').textContent=ownerPage==='analytics'?'Сводка по всем админским кабинетам':ownerPage==='payments'?'Цены подписки и прием платежей для каждого админа':'Доступы для админского кабинета';
+  $('#ownerTitle').textContent=ownerPage==='analytics'?'Аналитика':ownerPage==='payments'?'Платежи':ownerPage==='cabinet'?'Кабинет':'Админы';
+  $('#ownerSubtitle').textContent=ownerPage==='analytics'?'Сводка по всем админским кабинетам':ownerPage==='payments'?'Цены подписки и прием платежей для каждого админа':ownerPage==='cabinet'?'Доступы директорского кабинета':'Доступы для админского кабинета';
   $('#addDispatcher').style.display=ownerPage==='admins'?'inline-flex':'none';
   $('#dispatcherGrid').classList.toggle('hidden',ownerPage!=='admins');
   $('#ownerAnalytics').classList.toggle('hidden',ownerPage!=='analytics');
   $('#ownerPayments').classList.toggle('hidden',ownerPage!=='payments');
+  $('#ownerCabinet').classList.toggle('hidden',ownerPage!=='cabinet');
   if(ownerPage==='analytics'){renderOwnerAnalytics();return}
   if(ownerPage==='payments'){renderOwnerPayments();return}
+  if(ownerPage==='cabinet'){renderOwnerCabinet();return}
   $('#dispatcherGrid').innerHTML=dispatchers.length?dispatchers.map(dispatcherCard).join(''):'<article class="card empty-card">Админы ещё не добавлены. Нажмите «Добавить админа», чтобы выдать первый доступ.</article>';
   document.querySelectorAll('.dispatcher-open').forEach(b=>b.onclick=()=>openAdminCabinet(b.dataset.id));
   document.querySelectorAll('.dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
   document.querySelectorAll('.dispatcher-details').forEach(b=>b.onclick=()=>showAdminDetails(b.dataset.id));
+}
+
+function renderOwnerCabinet(){
+  const canManage=currentDirector?.can_manage_directors===true;
+  $('#ownerCabinet').innerHTML=`<div class="cabinet-head"><div><h2>Директора</h2><p>${canManage?'Главный директор может выдавать и закрывать доступ.':'У вас есть доступ к кабинету без права выдавать доступ другим директорам.'}</p></div>${canManage?'<button class="primary" id="addDirectorAccess">+ Добавить директора</button>':''}</div><div class="director-grid">${directors.map(d=>`<article class="director-card ${d.active?'':'disabled'}"><div class="director-card-main"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><div><small>${d.can_manage_directors?'Главный директор':'Директор'}</small><h3>${d.name||'Директор'}</h3><p>${d.email}</p></div></div><span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>${canManage&&!d.can_manage_directors?`<button class="secondary director-edit" data-id="${d.id}">Изменить</button>`:''}</article>`).join('')}</div>`;
+  const addBtn=$('#addDirectorAccess');if(addBtn)addBtn.onclick=()=>openDirectorDialog('');
+  document.querySelectorAll('.director-edit').forEach(b=>b.onclick=()=>openDirectorDialog(b.dataset.id));
 }
 
 function renderOwnerPayments(){
@@ -155,6 +178,67 @@ $('.close').onclick=$('.cancel').onclick=()=>dialog.close();
 form.phone.oninput=()=>{form.phone.value=formatRuPhone(form.phone.value)};
 $('.dispatcher-dialog-delete').onclick=async()=>{if(editingDispatcherId&&await deleteDispatcher(editingDispatcherId))dialog.close()};
 $('.dispatcher-dialog-toggle').onclick=async()=>{if(editingDispatcherId){await toggleDispatcher(editingDispatcherId);const d=dispatchers.find(x=>x.id===editingDispatcherId);if(d)fillDispatcherForm(d)}};
+
+const directorDialog=$('#directorDialog'),directorForm=$('#directorForm');
+$('.director-close').onclick=$('.director-cancel').onclick=()=>directorDialog.close();
+$('.director-dialog-delete').onclick=async()=>{if(editingDirectorId&&await deleteDirector(editingDirectorId))directorDialog.close()};
+
+function canManageDirectors(){
+  return currentDirector?.can_manage_directors===true;
+}
+
+function openDirectorDialog(id=''){
+  if(!canManageDirectors()){alert('Только главный директор может выдавать доступ другим директорам');return}
+  editingDirectorId=id;
+  directorForm.reset();
+  directorForm.elements.active.value='true';
+  $('#directorDialogTitle').textContent=id?'Изменить директора':'Новый директор';
+  const d=directors.find(x=>x.id===id);
+  if(d){
+    directorForm.elements.id.value=d.id;
+    directorForm.elements.name.value=d.name||'';
+    directorForm.elements.email.value=d.email||'';
+    directorForm.elements.password.value=d.password||'';
+    directorForm.elements.active.value=String(d.active!==false);
+  }
+  $('.director-dialog-delete').style.display=id?'inline-flex':'none';
+  directorDialog.showModal();
+}
+
+directorForm.onsubmit=async e=>{
+  e.preventDefault();
+  if(!canManageDirectors()){alert('Нет права изменять директоров');return}
+  const d=Object.fromEntries(new FormData(e.target));
+  d.email=String(d.email||'').trim().toLowerCase();
+  d.active=d.active==='true';
+  d.can_manage_directors=false;
+  if(d.email===OWNER_EMAIL){alert('Главного директора нельзя изменить здесь');return}
+  if(directors.some(x=>x.email===d.email&&x.id!==editingDirectorId)){alert('Такой директор уже добавлен');return}
+  if(editingDirectorId){
+    d.id=editingDirectorId;
+    directors=directors.map(x=>x.id===editingDirectorId?normalizeDirector(d,0):x);
+  }else{
+    d.id='director-'+Date.now();
+    directors.push(normalizeDirector(d,0));
+  }
+  saveDirectorsLocal();
+  await saveDirectorRemote(d).catch(error=>console.warn('Не удалось сохранить директора в Supabase',error));
+  directorDialog.close();
+  renderOwnerCabinet();
+};
+
+async function deleteDirector(id){
+  if(!canManageDirectors()){alert('Нет права удалять директоров');return false}
+  const d=directors.find(x=>x.id===id);
+  if(!d)return false;
+  if(d.can_manage_directors||d.email===OWNER_EMAIL){alert('Главного директора нельзя удалить');return false}
+  if(!confirm(`Удалить доступ директора ${d.name}?\n\nОн больше не сможет войти в директорский кабинет.`))return false;
+  directors=directors.filter(x=>x.id!==id);
+  saveDirectorsLocal();
+  await deleteDirectorRemote(id).catch(error=>console.warn('Не удалось удалить директора из Supabase',error));
+  renderOwnerCabinet();
+  return true;
+}
 
 function openDispatcher(id=''){
   editingDispatcherId=id;
@@ -235,3 +319,10 @@ async function deleteDispatcher(id){
   return true;
 }
 loadDispatchersRemote();
+loadDirectorsRemote().then(ensureMainDirector).then(()=>{
+  if(currentDirector){
+    const fresh=directors.find(d=>d.email===currentDirector.email);
+    if(fresh)currentDirector=fresh;
+    render();
+  }
+});

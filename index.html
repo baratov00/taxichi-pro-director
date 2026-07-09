@@ -6,8 +6,8 @@
   <title>Taxichi Pro - кабинет директора</title>
   <link rel="icon" href="taxichi-pro-logo.png">
   <link rel="apple-touch-icon" href="taxichi-pro-logo.png">
-  <link rel="stylesheet" href="owner.css?v=20260709-5">
-  <link rel="stylesheet" href="owner-analytics.css?v=20260709-5">
+  <link rel="stylesheet" href="owner.css?v=20260709-6">
+  <link rel="stylesheet" href="owner-analytics.css?v=20260709-6">
 </head>
 <body>
 <section id="ownerLogin" class="login">
@@ -29,6 +29,7 @@
       <button class="active" data-owner-page="admins">Админы</button>
       <button data-owner-page="payments" type="button">Платежи</button>
       <button data-owner-page="analytics" type="button">Аналитика</button>
+      <button data-owner-page="cabinet" type="button">Кабинет</button>
     </nav>
     <div class="account"><b>Асадбек Баратов</b><span>Директор</span><button id="ownerLogout">Выйти</button></div>
   </aside>
@@ -39,6 +40,7 @@
     </header>
     <section id="ownerPayments" class="owner-payments-panel hidden"></section>
     <section id="ownerAnalytics" class="owner-analytics-panel hidden"></section>
+    <section id="ownerCabinet" class="owner-cabinet-panel hidden"></section>
     <section id="dispatcherGrid" class="dispatcher-list"></section>
   </main>
 </div>
@@ -89,6 +91,26 @@
     </div>
   </form>
 </dialog>
+<dialog id="directorDialog">
+  <button class="close director-close">×</button>
+  <h2 id="directorDialogTitle">Новый директор</h2>
+  <p>Дополнительный директор сможет входить в кабинет, но не сможет выдавать доступ другим директорам.</p>
+  <form id="directorForm">
+    <input type="hidden" name="id">
+    <div class="form-grid">
+      <label>ФИО<input name="name" required placeholder="ФИО директора"></label>
+      <label>Почта<input name="email" type="email" required placeholder="director@example.com"></label>
+      <label>Пароль<input name="password" required minlength="6"></label>
+      <label>Статус<select name="active"><option value="true">Доступ открыт</option><option value="false">Доступ закрыт</option></select></label>
+    </div>
+    <div class="actions edit-actions">
+      <button type="button" class="danger director-dialog-delete">Удалить</button>
+      <span class="action-spacer"></span>
+      <button type="button" class="cancel director-cancel">Отмена</button>
+      <button type="submit" class="primary">Сохранить директора</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="ownerResetDialog">
   <button class="close reset-close">×</button>
   <h2>Сброс пароля директора</h2>
@@ -105,6 +127,6 @@
     </div>
   </form>
 </dialog>
-<script src="owner.js?v=20260709-5"></script>
+<script src="owner.js?v=20260709-6"></script>
 </body>
 </html>

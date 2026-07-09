@@ -6,8 +6,8 @@
   <title>Taxichi Pro - кабинет директора</title>
   <link rel="icon" href="taxichi-pro-logo.png">
   <link rel="apple-touch-icon" href="taxichi-pro-logo.png">
-  <link rel="stylesheet" href="owner.css?v=20260709-4">
-  <link rel="stylesheet" href="owner-analytics.css?v=20260709-4">
+  <link rel="stylesheet" href="owner.css?v=20260709-5">
+  <link rel="stylesheet" href="owner-analytics.css?v=20260709-5">
 </head>
 <body>
 <section id="ownerLogin" class="login">
@@ -63,26 +63,21 @@
       <h3>Подписка и платежи</h3>
       <div class="form-grid">
         <label>Тип оплаты<select name="payment_mode">
-          <option value="own_account">Прием платежа на наш лицевой счет</option>
-          <option value="admin_account">Прием платежа к себе на лицевой счет</option>
-          <option value="free_park">Таксопарк бесплатно для водителей</option>
+          <option value="free_park">Для таксопарков</option>
+          <option value="subscription">Платеж по подписке</option>
         </select></label>
-        <label>Провайдер<select name="payment_provider">
+        <label class="paid-only">Провайдер<select name="payment_provider">
           <option value="none">Без провайдера</option>
           <option value="robokassa">Robokassa</option>
           <option value="yookassa">ЮKassa</option>
         </select></label>
-        <label>Цена 15 дней<input name="price15" type="number" min="0" step="1" value="0"></label>
-        <label>Цена 30 дней<input name="price30" type="number" min="0" step="1" value="0"></label>
-        <label>Срок по умолчанию<select name="defaultDays">
-          <option value="15">15 дней</option>
-          <option value="30">30 дней</option>
-        </select></label>
-        <label>Лицевой счет<input name="account" placeholder="Номер лицевого счета"></label>
-        <label>Shop ID / Merchant Login<input name="shopId" placeholder="ID магазина"></label>
-        <label>Secret key<input name="secretKey" placeholder="Секретный ключ"></label>
-        <label>Success URL<input name="successUrl" placeholder="https://..."></label>
-        <label>Fail URL<input name="failUrl" placeholder="https://..."></label>
+        <label class="paid-only">Цена 15 дней<input name="price15" type="number" min="0" step="1" value="0"></label>
+        <label class="paid-only">Цена 30 дней<input name="price30" type="number" min="0" step="1" value="0"></label>
+        <label class="paid-only">Лицевой счет<input name="account" placeholder="Номер лицевого счета"></label>
+        <label class="paid-only">Shop ID / Merchant Login<input name="shopId" placeholder="ID магазина"></label>
+        <label class="paid-only">Secret key<input name="secretKey" placeholder="Секретный ключ"></label>
+        <label class="paid-only">Success URL<input name="successUrl" placeholder="https://..."></label>
+        <label class="paid-only">Fail URL<input name="failUrl" placeholder="https://..."></label>
       </div>
     </section>
     <div class="actions edit-actions">
@@ -110,6 +105,6 @@
     </div>
   </form>
 </dialog>
-<script src="owner.js?v=20260709-4"></script>
+<script src="owner.js?v=20260709-5"></script>
 </body>
 </html>

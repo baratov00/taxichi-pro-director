@@ -7,18 +7,18 @@ const SUPABASE_URL='https://qquvbedufztponyxneqa.supabase.co',SUPABASE_KEY='sb_p
 const DISPATCHERS_TABLE='taxichi_pro_dispatchers';
 const DEFAULT_DISPATCHERS=[{id:'demo',name:'Иванова Мария',phone:'+7 999 999-77-42',login:'admin',password:'1234',active:true}];
 const PAYMENT_MODES={
-  own_account:'Прием платежа на нашу лицевой счет',
-  admin_account:'Прием платежа к себе на лицевой счет',
-  free_park:'Таксопарк бесплатно для водителей'
+  free_park:'Для таксопарков',
+  subscription:'Платеж по подписке'
 };
 const PAYMENT_PROVIDERS={none:'Без платежного провайдера',robokassa:'Robokassa',yookassa:'ЮKassa'};
-const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),defaultDays:Number(value?.defaultDays||15),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||''});
+const paymentMode=value=>value==='free_park'?'free_park':'subscription';
+const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||''});
 const normalizePaymentSettings=value=>{
   if(!value)return {};
   if(typeof value==='string'){try{return JSON.parse(value)}catch{return {}}}
   return value||{};
 };
-const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:d.payment_mode||'own_account',payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
+const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
 let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
 if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchers()}
 const adminStorageKey=(id,key)=>`taxichiProAdmin:${id}:${key}`;
@@ -27,7 +27,7 @@ const adminWaybills=id=>load(adminStorageKey(id,'taxichiProWaybills'),id==='demo
 let editingDispatcherId='',ownerPage='admins';
 
 function saveDispatchersLocal(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
-function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:d.payment_mode||'own_account',payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
+function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
 async function remoteDispatchers(){
   const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS,cache:'no-store'});
   if(!response.ok)throw new Error(await response.text());
@@ -94,19 +94,20 @@ function render(){
 }
 
 function renderOwnerPayments(){
-  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${dispatchers.map(d=>{const s=subscriptionSettings(d.payment_settings);return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[d.payment_mode]||PAYMENT_MODES.own_account}</b><span>${PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none}</span></div><div><small>Подписка</small><strong>15 дней: ${s.price15.toLocaleString('ru-RU')} ₽</strong><strong>30 дней: ${s.price30.toLocaleString('ru-RU')} ₽</strong></div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`}).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
+  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${dispatchers.map(d=>{const s=subscriptionSettings(d.payment_settings),free=paymentMode(d.payment_mode)==='free_park';return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[paymentMode(d.payment_mode)]}</b><span>${free?'Оплата не требуется':PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none}</span></div><div><small>Подписка</small>${free?'<strong>Бесплатно для водителей</strong>':`<strong>15 дней: ${s.price15.toLocaleString('ru-RU')} ₽</strong><strong>30 дней: ${s.price30.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`}).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
   document.querySelectorAll('#ownerPayments .dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
 }
 
 function dispatcherCard(d){
   const count=adminDrivers(d.id).length;
-  const mode=PAYMENT_MODES[d.payment_mode]||PAYMENT_MODES.own_account;
+  const mode=PAYMENT_MODES[paymentMode(d.payment_mode)];
   const provider=PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none;
   const s=subscriptionSettings(d.payment_settings);
+  const free=paymentMode(d.payment_mode)==='free_park';
   return `<article class="card dispatcher-card ${d.active?'':'disabled'}">
     <div class="dispatcher-main">
       <div class="identity"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><button class="admin-name dispatcher-details" data-id="${d.id}" type="button"><b>${d.name}</b><small>${d.phone||'телефон не указан'}</small></button></div>
-      <div class="access"><div><small>Логин</small><b>${d.login}</b></div><div><small>Водителей</small><b>${count}</b></div><div><small>Подписка</small><b>${mode}</b><span>${provider} · 15д ${s.price15} ₽ / 30д ${s.price30} ₽</span></div></div>
+      <div class="access"><div><small>Логин</small><b>${d.login}</b></div><div><small>Водителей</small><b>${count}</b></div><div><small>Подписка</small><b>${mode}</b><span>${free?'без оплаты':`${provider} · 15д ${s.price15} ₽ / 30д ${s.price30} ₽`}</span></div></div>
       <span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>
     </div>
     <div class="dispatcher-actions">
@@ -121,7 +122,8 @@ function showAdminDetails(id){
   let details=document.querySelector('#adminDetailsDialog');
   if(!details){details=document.createElement('dialog');details.id='adminDetailsDialog';details.className='admin-details-dialog';document.body.append(details)}
   const s=subscriptionSettings(d.payment_settings);
-  details.innerHTML=`<button class="close" type="button">×</button><h2>${d.name||'Админ'}</h2><p class="muted">Данные админского доступа</p><div class="admin-details-grid"><div><small>Почта</small><b>${d.email||d.login||'—'}</b></div><div><small>Телефон</small><b>${d.phone||'—'}</b></div><div><small>Логин</small><b>${d.login||'—'}</b></div><div><small>Оплата</small><b>${PAYMENT_MODES[d.payment_mode]||'—'}</b></div><div><small>Провайдер</small><b>${PAYMENT_PROVIDERS[d.payment_provider]||'—'}</b></div><div><small>Цена</small><b>15 дней: ${s.price15} ₽ / 30 дней: ${s.price30} ₽</b></div></div>`;
+  const free=paymentMode(d.payment_mode)==='free_park';
+  details.innerHTML=`<button class="close" type="button">×</button><h2>${d.name||'Админ'}</h2><p class="muted">Данные админского доступа</p><div class="admin-details-grid"><div><small>Почта</small><b>${d.email||d.login||'—'}</b></div><div><small>Телефон</small><b>${d.phone||'—'}</b></div><div><small>Логин</small><b>${d.login||'—'}</b></div><div><small>Оплата</small><b>${PAYMENT_MODES[paymentMode(d.payment_mode)]}</b></div><div><small>Провайдер</small><b>${free?'—':PAYMENT_PROVIDERS[d.payment_provider]||'—'}</b></div><div><small>Цена</small><b>${free?'Бесплатно':`15 дней: ${s.price15} ₽ / 30 дней: ${s.price30} ₽`}</b></div></div>`;
   details.querySelector('.close').onclick=()=>details.close();
   details.showModal();
 }
@@ -135,7 +137,7 @@ async function renderOwnerAnalytics(){
   const filtered=all.filter(w=>(!from||String(w.date||'').slice(0,10)>=from)&&(!to||String(w.date||'').slice(0,10)<=to));
   const rows=dispatchers.map(d=>{const ds=adminDrivers(d.id),wb=filtered.filter(w=>waybillAdminId(w)===d.id||(d.id==='demo'&&!waybillAdminId(w))),open=wb.filter(w=>w.status==='Открыто').length,closed=wb.filter(w=>w.status==='Закрыто').length;return {d,drivers:ds.length,waybills:wb.length,open,closed}});
   const totals=rows.reduce((a,r)=>({drivers:a.drivers+r.drivers,waybills:a.waybills+r.waybills,open:a.open+r.open,closed:a.closed+r.closed}),{drivers:0,waybills:0,open:0,closed:0});
-  $('#ownerAnalytics').innerHTML=`<div class="analytics-filter"><label>С даты<input id="ownerReportFrom" type="date" value="${from}"></label><label>До даты<input id="ownerReportTo" type="date" value="${to}"></label><button class="secondary" id="ownerReportApply">Показать</button></div><div class="analytics-grid"><article><small>Админов</small><b>${dispatchers.length}</b></article><article><small>Водителей</small><b>${totals.drivers}</b></article><article><small>Открытые ЭПЛ</small><b>${totals.open}</b></article><article><small>Завершённые</small><b>${totals.closed}</b></article></div><table class="analytics-table"><thead><tr><th>Админ</th><th>Водители</th><th>Открытые</th><th>Завершённые</th><th>Всего ЭПЛ</th><th>Оплата</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.d.name}</b><span>${r.d.login}</span></td><td>${r.drivers}</td><td>${r.open}</td><td>${r.closed}</td><td>${r.waybills}</td><td>${PAYMENT_MODES[r.d.payment_mode]||'—'}</td></tr>`).join('')||'<tr><td colspan="6">Данных пока нет</td></tr>'}</tbody></table>`;
+  $('#ownerAnalytics').innerHTML=`<div class="analytics-filter"><label>С даты<input id="ownerReportFrom" type="date" value="${from}"></label><label>До даты<input id="ownerReportTo" type="date" value="${to}"></label><button class="secondary" id="ownerReportApply">Показать</button></div><div class="analytics-grid"><article><small>Админов</small><b>${dispatchers.length}</b></article><article><small>Водителей</small><b>${totals.drivers}</b></article><article><small>Открытые ЭПЛ</small><b>${totals.open}</b></article><article><small>Завершённые</small><b>${totals.closed}</b></article></div><table class="analytics-table"><thead><tr><th>Админ</th><th>Водители</th><th>Открытые</th><th>Завершённые</th><th>Всего ЭПЛ</th><th>Оплата</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.d.name}</b><span>${r.d.login}</span></td><td>${r.drivers}</td><td>${r.open}</td><td>${r.closed}</td><td>${r.waybills}</td><td>${PAYMENT_MODES[paymentMode(r.d.payment_mode)]||'—'}</td></tr>`).join('')||'<tr><td colspan="6">Данных пока нет</td></tr>'}</tbody></table>`;
   $('#ownerReportApply').onclick=()=>renderOwnerAnalytics();
 }
 
@@ -158,11 +160,10 @@ function openDispatcher(id=''){
   editingDispatcherId=id;
   form.reset();
   form.elements.active.value='true';
-  form.elements.payment_mode.value='own_account';
+  form.elements.payment_mode.value='free_park';
   form.elements.payment_provider.value='none';
   form.elements.price15.value='0';
   form.elements.price30.value='0';
-  form.elements.defaultDays.value='15';
   const dataSection=form.querySelector('.admin-data-box'),paymentSection=form.querySelector('.payment-settings-box');
   if(dataSection&&paymentSection)form.insertBefore(ownerPage==='payments'?paymentSection:dataSection,ownerPage==='payments'?dataSection:paymentSection);
   $('#dispatcherDialogTitle').textContent=id?'Изменить админа':'Новый админ';
@@ -172,22 +173,33 @@ function openDispatcher(id=''){
   $('.dispatcher-dialog-delete').style.display=editOnly?'inline-flex':'none';
   $('.dispatcher-dialog-toggle').style.display=editOnly?'inline-flex':'none';
   dialog.showModal();
+  updatePaymentFields();
 }
 
 function fillDispatcherForm(d){
   Object.entries(d).forEach(([k,v])=>{if(form.elements[k])form.elements[k].value=String(v)});
   const settings=subscriptionSettings(d.payment_settings||{});
-  ['shopId','secretKey','account','successUrl','failUrl','price15','price30','defaultDays'].forEach(k=>{if(form.elements[k])form.elements[k].value=settings[k]||''});
+  if(form.elements.payment_mode)form.elements.payment_mode.value=paymentMode(d.payment_mode);
+  ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>{if(form.elements[k])form.elements[k].value=settings[k]||''});
   $('.dispatcher-dialog-toggle').textContent=d.active?'Закрыть доступ':'Открыть доступ';
+  updatePaymentFields();
 }
+
+function updatePaymentFields(){
+  const paid=form.elements.payment_mode?.value==='subscription';
+  form.querySelectorAll('.paid-only').forEach(el=>el.classList.toggle('hidden',!paid));
+  if(!paid&&form.elements.payment_provider)form.elements.payment_provider.value='none';
+}
+form.elements.payment_mode.onchange=updatePaymentFields;
 
 form.onsubmit=async e=>{
   e.preventDefault();
   const d=Object.fromEntries(new FormData(e.target));
   d.phone=formatRuPhone(d.phone);
   d.active=d.active==='true';
-  d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',price15:d.price15,price30:d.price30,defaultDays:d.defaultDays});
-  ['shopId','secretKey','account','successUrl','failUrl','price15','price30','defaultDays'].forEach(k=>delete d[k]);
+  d.payment_mode=paymentMode(d.payment_mode);
+  d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',price15:d.price15,price30:d.price30});
+  ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>delete d[k]);
   if(d.payment_mode==='free_park')d.payment_provider='none';
   if(dispatchers.some(x=>x.login===d.login&&x.id!==editingDispatcherId)){alert('Такой логин уже используется');return}
   if(editingDispatcherId){

@@ -78,16 +78,23 @@ resetForm.onsubmit=e=>{
 
 function render(){
   document.querySelectorAll('[data-owner-page]').forEach(b=>b.classList.toggle('active',b.dataset.ownerPage===ownerPage));
-  $('#ownerTitle').textContent=ownerPage==='analytics'?'Аналитика':'Админы';
-  $('#ownerSubtitle').textContent=ownerPage==='analytics'?'Сводка по всем админским кабинетам':'Доступы для админского кабинета';
+  $('#ownerTitle').textContent=ownerPage==='analytics'?'Аналитика':ownerPage==='payments'?'Платежи':'Админы';
+  $('#ownerSubtitle').textContent=ownerPage==='analytics'?'Сводка по всем админским кабинетам':ownerPage==='payments'?'Типы приема платежей и баланс админов':'Доступы для админского кабинета';
   $('#addDispatcher').style.display=ownerPage==='admins'?'inline-flex':'none';
   $('#dispatcherGrid').classList.toggle('hidden',ownerPage!=='admins');
   $('#ownerAnalytics').classList.toggle('hidden',ownerPage!=='analytics');
+  $('#ownerPayments').classList.toggle('hidden',ownerPage!=='payments');
   if(ownerPage==='analytics'){renderOwnerAnalytics();return}
+  if(ownerPage==='payments'){renderOwnerPayments();return}
   $('#dispatcherGrid').innerHTML=dispatchers.length?dispatchers.map(dispatcherCard).join(''):'<article class="card empty-card">Админы ещё не добавлены. Нажмите «Добавить админа», чтобы выдать первый доступ.</article>';
   document.querySelectorAll('.dispatcher-open').forEach(b=>b.onclick=()=>openAdminCabinet(b.dataset.id));
   document.querySelectorAll('.dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
   document.querySelectorAll('.dispatcher-details').forEach(b=>b.onclick=()=>showAdminDetails(b.dataset.id));
+}
+
+function renderOwnerPayments(){
+  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${dispatchers.map(d=>`<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[d.payment_mode]||PAYMENT_MODES.own_account}</b><span>${PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none}</span></div><div><small>Баланс</small><strong>${Number(d.balance||0).toLocaleString('ru-RU')} ₽</strong></div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
+  document.querySelectorAll('#ownerPayments .dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
 }
 
 function dispatcherCard(d){
@@ -148,6 +155,9 @@ function openDispatcher(id=''){
   editingDispatcherId=id;
   form.reset();
   form.elements.active.value='true';
+  form.elements.payment_mode.value='own_account';
+  form.elements.payment_provider.value='none';
+  form.elements.balance.value='0';
   $('#dispatcherDialogTitle').textContent=id?'Изменить админа':'Новый админ';
   const d=dispatchers.find(x=>x.id===id);
   if(d)fillDispatcherForm(d);

@@ -91,11 +91,12 @@ header p{color:#777}
 dialog{width:min(650px,92vw);border:1px solid #dfe3e8;border-radius:10px;padding:28px;box-shadow:0 18px 45px #0003}
 dialog::backdrop{background:#0006}
 .close{float:right;border:0;background:none;font-size:25px}
-.payment-settings-box{display:grid;gap:12px;margin:14px 0 18px;padding:16px;border:2px solid #ffd21c;border-radius:10px;background:#fffbed}
-.payment-settings-box h3{margin:0;font-size:18px}
+.admin-data-box,.payment-settings-box{display:grid;gap:12px;margin:14px 0 18px;padding:16px;border-radius:10px;background:#fff;border:1px solid #dfe3e8}
+.payment-settings-box{border:2px solid #ffd21c;background:#fffbed}
+.admin-data-box h3,.payment-settings-box h3{margin:0;font-size:18px}
 .owner-payments-panel{display:grid;gap:14px;margin-top:24px}
 .payment-mode-grid{display:grid;gap:12px}
-.payment-admin-card{display:grid;grid-template-columns:minmax(220px,1.2fr) minmax(220px,1fr) 130px auto;gap:14px;align-items:center;background:#fff;border:1px solid #dfe3e8;border-radius:8px;padding:16px}
+.payment-admin-card{display:grid;grid-template-columns:minmax(220px,1.2fr) minmax(220px,1fr) minmax(190px,.8fr) auto;gap:14px;align-items:center;background:#fff;border:1px solid #dfe3e8;border-radius:8px;padding:16px}
 .payment-admin-card small{display:block;color:#66717d;font-weight:800;text-transform:uppercase;font-size:11px}
 .payment-admin-card h3{margin:4px 0 3px}
 .payment-admin-card p{margin:0;color:#66717d}

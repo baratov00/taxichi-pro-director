@@ -16,13 +16,14 @@ const PAYMENT_PROVIDERS={none:'Без платежного провайдера'
 const paymentMode=value=>value==='free_park'?'free_park':'subscription';
 const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||''});
 const directorIsMain=()=>currentDirector?.can_manage_directors===true;
+const boolValue=value=>value===true||value==='true'||value===1||value==='1';
 const normalizePaymentSettings=value=>{
   if(!value)return {};
   if(typeof value==='string'){try{return JSON.parse(value)}catch{return {}}}
   return value||{};
 };
-const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:d.hidden_from_directors===true,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
-const normalizeDirector=(d,i)=>({id:d.id||`director-${i+1}`,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:d.can_manage_directors===true});
+const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:boolValue(d.hidden_from_directors),payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
+const normalizeDirector=(d,i)=>({id:d.id||`director-${i+1}`,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:boolValue(d.can_manage_directors)});
 let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
 if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchers()}
 let directors=(load('taxichiProDirectors',DEFAULT_DIRECTORS)||DEFAULT_DIRECTORS).map(normalizeDirector);
@@ -34,7 +35,7 @@ let driverCounts={};
 let editingDispatcherId='',editingDirectorId='',ownerPage='admins';
 
 function saveDispatchersLocal(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
-function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:d.hidden_from_directors===true,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
+function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:boolValue(d.hidden_from_directors),payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
 function saveDirectorsLocal(){localStorage.setItem('taxichiProDirectors',JSON.stringify(directors))}
 function directorPayload(d){return {id:d.id,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:d.can_manage_directors===true,updated_at:new Date().toISOString()}}
 async function remoteDispatchers(){
@@ -57,7 +58,7 @@ async function loadDispatchersRemote(){
   }catch(error){console.warn('Не удалось загрузить админов из Supabase',error)}
 }
 async function saveDispatchers(){saveDispatchersLocal();try{await Promise.all(dispatchers.map(saveDispatcherRemote))}catch(error){console.warn('Не удалось сохранить админов в Supabase',error)}}
-function visibleDispatchers(){return directorIsMain()?dispatchers:dispatchers.filter(d=>!d.hidden_from_directors)}
+function visibleDispatchers(){return directorIsMain()?dispatchers:dispatchers.filter(d=>!boolValue(d.hidden_from_directors))}
 function readPayload(value){if(!value)return {};if(typeof value==='string'){try{return JSON.parse(value)}catch{return {}}}return value||{}}
 function payloadAdminId(value){const payload=readPayload(value);return String(payload.adminId||payload.admin_id||payload.dispatcherId||payload.dispatcher_id||'').trim()}
 function normalizeIsoDate(value){
@@ -166,12 +167,13 @@ function dispatcherCard(d){
   const provider=PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none;
   const s=subscriptionSettings(d.payment_settings);
   const free=paymentMode(d.payment_mode)==='free_park';
-  return `<article class="card dispatcher-card ${d.active?'':'disabled'} ${d.hidden_from_directors?'private-admin':''}">
+  const privateAdmin=boolValue(d.hidden_from_directors);
+  return `<article class="card dispatcher-card ${d.active?'':'disabled'} ${privateAdmin?'private-admin':''}">
     <div class="dispatcher-main">
       <div class="identity"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><button class="admin-name dispatcher-details" data-id="${d.id}" type="button"><b>${d.name}</b><small>${d.phone||'телефон не указан'}</small></button></div>
       <div class="access"><div><small>Почта</small><b>${d.email||d.login||'—'}</b><span>${d.login||''}</span></div><div><small>Водителей</small><b>${count}</b></div><div><small>Подписка</small><b>${mode}</b><span>${free?'без оплаты':`${provider} · 15д ${s.price15} ₽ / 30д ${s.price30} ₽`}</span></div></div>
       <span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>
-      ${d.hidden_from_directors?'<span class="private-badge">Скрыт от директоров</span>':''}
+      ${privateAdmin?'<span class="private-badge">Скрыт от директоров</span>':''}
     </div>
     <div class="dispatcher-actions">
       <button class="secondary dispatcher-open" data-id="${d.id}" ${d.active?'':'disabled'}>Открыть кабинет</button>
@@ -307,7 +309,7 @@ function openDispatcher(id=''){
 
 function fillDispatcherForm(d){
   Object.entries(d).forEach(([k,v])=>{if(form.elements[k])form.elements[k].value=String(v)});
-  if(form.elements.hidden_from_directors)form.elements.hidden_from_directors.checked=d.hidden_from_directors===true;
+  if(form.elements.hidden_from_directors)form.elements.hidden_from_directors.checked=boolValue(d.hidden_from_directors);
   const settings=subscriptionSettings(d.payment_settings||{});
   if(form.elements.payment_mode)form.elements.payment_mode.value=paymentMode(d.payment_mode);
   ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>{if(form.elements[k])form.elements[k].value=settings[k]||''});
@@ -327,7 +329,7 @@ form.onsubmit=async e=>{
   const d=Object.fromEntries(new FormData(e.target));
   d.phone=formatRuPhone(d.phone);
   d.active=d.active==='true';
-  d.hidden_from_directors=directorIsMain()&&d.hidden_from_directors==='true';
+  d.hidden_from_directors=directorIsMain()&&boolValue(d.hidden_from_directors);
   d.payment_mode=paymentMode(d.payment_mode);
   d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',price15:d.price15,price30:d.price30});
   ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>delete d[k]);
@@ -340,7 +342,13 @@ form.onsubmit=async e=>{
     d.id='disp-'+Date.now();
     dispatchers.push(d);
   }
-  await saveDispatcherRemote(d).catch(error=>console.warn('Не удалось сохранить админа в Supabase',error));
+  try{
+    await saveDispatcherRemote(d);
+  }catch(error){
+    console.warn('Не удалось сохранить админа в Supabase',error);
+    alert('Не удалось сохранить админа в общей базе. Проверьте интернет и попробуйте ещё раз.');
+    return;
+  }
   saveDispatchersLocal();
   dialog.close();
   render();

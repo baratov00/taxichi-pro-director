@@ -6,17 +6,17 @@
   <title>Taxichi Pro - кабинет директора</title>
   <link rel="icon" href="taxichi-pro-logo.png">
   <link rel="apple-touch-icon" href="taxichi-pro-logo.png">
-  <link rel="stylesheet" href="owner.css?v=20260709-6">
-  <link rel="stylesheet" href="owner-analytics.css?v=20260709-6">
+  <link rel="stylesheet" href="owner.css?v=20260710-2">
+  <link rel="stylesheet" href="owner-analytics.css?v=20260710-2">
 </head>
 <body>
 <section id="ownerLogin" class="login">
-  <form id="ownerLoginForm" class="login-card">
+  <form id="ownerLoginForm" class="login-card" autocomplete="off">
     <img src="taxichi-pro-logo.png" alt="">
     <h1>Кабинет директора</h1>
     <p>Управление доступом админов</p>
-    <label>Почта<input name="email" type="email" required autocomplete="username" value="baratov329@mail.ru"></label>
-    <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
+    <label>Почта<input name="email" type="email" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <label>Пароль<input name="password" type="password" required autocomplete="new-password"></label>
     <div id="ownerError" class="error"></div>
     <button>Войти</button>
     <button type="button" id="forgotOwnerPassword" class="link-button">Сбросить пароль через почту</button>
@@ -59,6 +59,7 @@
         <label>Почта<input name="email" type="email" placeholder="admin@example.com"></label>
         <label>Логин<input name="login" required></label>
         <label>Пароль<input name="password" required minlength="4"></label>
+        <label class="check-field"><input name="hidden_from_directors" type="checkbox" value="true"> <span>Не показывать другим директорам</span></label>
       </div>
     </section>
     <section class="payment-settings-box">
@@ -114,11 +115,11 @@
 <dialog id="ownerResetDialog">
   <button class="close reset-close">×</button>
   <h2>Сброс пароля директора</h2>
-  <p>Введите привязанную почту и новый пароль.</p>
-  <form id="ownerResetForm">
+  <p>Введите почту директора и новый пароль. После сохранения главный директор увидит новый пароль в карточке директора.</p>
+  <form id="ownerResetForm" autocomplete="off">
     <div class="form-grid">
-      <label>Почта<input name="email" type="email" required value="baratov329@mail.ru"></label>
-      <label>Новый пароль<input name="password" type="password" required minlength="6"></label>
+      <label>Почта<input name="email" type="email" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+      <label>Новый пароль<input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
     </div>
     <div id="ownerResetError" class="error"></div>
     <div class="actions">
@@ -127,6 +128,6 @@
     </div>
   </form>
 </dialog>
-<script src="owner.js?v=20260709-6"></script>
+<script src="owner.js?v=20260710-2"></script>
 </body>
 </html>

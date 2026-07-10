@@ -15,12 +15,13 @@ const PAYMENT_MODES={
 const PAYMENT_PROVIDERS={none:'Без платежного провайдера',robokassa:'Robokassa',yookassa:'ЮKassa'};
 const paymentMode=value=>value==='free_park'?'free_park':'subscription';
 const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||''});
+const directorIsMain=()=>currentDirector?.can_manage_directors===true;
 const normalizePaymentSettings=value=>{
   if(!value)return {};
   if(typeof value==='string'){try{return JSON.parse(value)}catch{return {}}}
   return value||{};
 };
-const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
+const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:d.hidden_from_directors===true,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
 const normalizeDirector=(d,i)=>({id:d.id||`director-${i+1}`,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:d.can_manage_directors===true});
 let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
 if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchers()}
@@ -29,10 +30,11 @@ let currentDirector=null;
 const adminStorageKey=(id,key)=>`taxichiProAdmin:${id}:${key}`;
 const adminDrivers=id=>load(adminStorageKey(id,'taxichiProDrivers'),id==='demo'?load('taxichiProDrivers',[]):[]);
 const adminWaybills=id=>load(adminStorageKey(id,'taxichiProWaybills'),id==='demo'?load('taxichiProWaybills',[]):[]);
+let driverCounts={};
 let editingDispatcherId='',editingDirectorId='',ownerPage='admins';
 
 function saveDispatchersLocal(){localStorage.setItem('taxichiProDispatchers',JSON.stringify(dispatchers))}
-function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
+function dispatcherPayload(d){return {id:d.id,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:d.hidden_from_directors===true,payment_mode:paymentMode(d.payment_mode||'subscription'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(d.payment_settings||{}),updated_at:new Date().toISOString()}}
 function saveDirectorsLocal(){localStorage.setItem('taxichiProDirectors',JSON.stringify(directors))}
 function directorPayload(d){return {id:d.id,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:d.can_manage_directors===true,updated_at:new Date().toISOString()}}
 async function remoteDispatchers(){
@@ -55,6 +57,33 @@ async function loadDispatchersRemote(){
   }catch(error){console.warn('Не удалось загрузить админов из Supabase',error)}
 }
 async function saveDispatchers(){saveDispatchersLocal();try{await Promise.all(dispatchers.map(saveDispatcherRemote))}catch(error){console.warn('Не удалось сохранить админов в Supabase',error)}}
+function visibleDispatchers(){return directorIsMain()?dispatchers:dispatchers.filter(d=>!d.hidden_from_directors)}
+function readPayload(value){if(!value)return {};if(typeof value==='string'){try{return JSON.parse(value)}catch{return {}}}return value||{}}
+function payloadAdminId(value){const payload=readPayload(value);return String(payload.adminId||payload.admin_id||payload.dispatcherId||payload.dispatcher_id||'').trim()}
+function normalizeIsoDate(value){
+  const raw=String(value||'').trim();
+  if(!raw)return '';
+  const direct=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(direct)return `${direct[1]}-${direct[2]}-${direct[3]}`;
+  const ru=raw.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+  if(ru)return `${ru[3]}-${ru[2]}-${ru[1]}`;
+  const parsed=new Date(raw);
+  return Number.isNaN(parsed.getTime())?'':parsed.toISOString().slice(0,10);
+}
+function waybillDate(w){return normalizeIsoDate(w.date||w.created_at||w.updated_at||w.opened_at)}
+async function loadDriverCountsRemote(){
+  try{
+    const response=await fetch(`${API_BASE}/driver_profiles?select=id,payload,updated_at`,{headers:API_HEADERS,cache:'no-store'});
+    if(!response.ok)throw new Error(await response.text());
+    const counts={};
+    (await response.json()).forEach(row=>{
+      const adminId=payloadAdminId(row.payload)||'demo';
+      counts[adminId]=(counts[adminId]||0)+1;
+    });
+    driverCounts=counts;
+    render();
+  }catch(error){console.warn('Не удалось загрузить счетчик водителей',error)}
+}
 async function remoteDirectors(){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS,cache:'no-store'});if(!response.ok)throw new Error(await response.text());return (await response.json()).map(normalizeDirector)}
 async function saveDirectorRemote(d){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?on_conflict=id`,{method:'POST',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(directorPayload(d))});if(!response.ok)throw new Error(await response.text())}
 async function deleteDirectorRemote(id){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...API_HEADERS,'Prefer':'return=minimal'}});if(!response.ok)throw new Error(await response.text())}
@@ -63,7 +92,7 @@ async function ensureMainDirector(){let main=directors.find(d=>d.email===OWNER_E
 function ownerAccount(){const saved=load('taxichiProOwnerAccount',null);return {email:OWNER_EMAIL,password:saved?.password||OWNER_DEFAULT_PASSWORD}}
 function saveOwnerPassword(password){localStorage.setItem('taxichiProOwnerAccount',JSON.stringify({email:OWNER_EMAIL,password}))}
 function formatRuPhone(raw){const rawDigits=String(raw||'').replace(/\D/g,''),digits=(rawDigits.startsWith('8')?'7'+rawDigits.slice(1):rawDigits.startsWith('7')?rawDigits:'7'+rawDigits).slice(0,11),n=digits.slice(1),a=n.slice(0,3),b=n.slice(3,6),c=n.slice(6,8),d=n.slice(8,10);return '+7'+(a?' '+a:'')+(b?' '+b:'')+(c?'-'+c:'')+(d?'-'+d:'')}
-function enter(director){currentDirector=director||directors[0]||DEFAULT_DIRECTORS[0];sessionStorage.setItem('taxichiOwnerSession',currentDirector.email);$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');document.querySelector('.account b').textContent=currentDirector.name||'Директор';document.querySelector('.account span').textContent=currentDirector.can_manage_directors?'Главный директор':'Директор';render()}
+function enter(director){currentDirector=director||directors[0]||DEFAULT_DIRECTORS[0];sessionStorage.setItem('taxichiOwnerSession',currentDirector.email);$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');document.querySelector('.account b').textContent=currentDirector.name||'Директор';document.querySelector('.account span').textContent=currentDirector.can_manage_directors?'Главный директор':'Директор';if(!directorIsMain()&&ownerPage==='cabinet')ownerPage='admins';render();loadDriverCountsRemote()}
 
 $('#ownerLoginForm').onsubmit=async e=>{
   e.preventDefault();
@@ -80,18 +109,26 @@ $('#ownerLogout').onclick=()=>{sessionStorage.removeItem('taxichiOwnerSession');
 document.querySelectorAll('[data-owner-page]').forEach(b=>b.onclick=()=>{ownerPage=b.dataset.ownerPage;render()});
 
 const resetDialog=$('#ownerResetDialog'),resetForm=$('#ownerResetForm');
-$('#forgotOwnerPassword').onclick=()=>{resetForm.reset();resetForm.elements.email.value=OWNER_EMAIL;$('#ownerResetError').textContent='';resetDialog.showModal()};
+$('#forgotOwnerPassword').onclick=()=>{resetForm.reset();$('#ownerResetError').textContent='';resetDialog.showModal()};
 $('.reset-close').onclick=$('.reset-cancel').onclick=()=>resetDialog.close();
 resetForm.onsubmit=e=>{
   e.preventDefault();
   const d=Object.fromEntries(new FormData(e.target));
-  if(String(d.email||'').trim().toLowerCase()!==OWNER_EMAIL){$('#ownerResetError').textContent='Эта почта не привязана к директорскому кабинету';return}
-  saveOwnerPassword(d.password);
+  const email=String(d.email||'').trim().toLowerCase();
+  const director=directors.find(x=>x.email===email&&x.active!==false);
+  if(!director){$('#ownerResetError').textContent='Эта почта не привязана к директорскому кабинету';return}
+  director.password=d.password;
+  if(currentDirector&&currentDirector.email===director.email)currentDirector.password=d.password;
+  saveDirectorsLocal();
+  saveDirectorRemote(director).catch(error=>console.warn('Не удалось сохранить новый пароль директора',error));
   resetDialog.close();
   $('#ownerError').textContent='Пароль обновлен. Войдите с новым паролем.';
 };
 
 function render(){
+  const main=directorIsMain();
+  document.querySelector('[data-owner-page="cabinet"]').classList.toggle('hidden',!main);
+  if(!main&&ownerPage==='cabinet')ownerPage='admins';
   document.querySelectorAll('[data-owner-page]').forEach(b=>b.classList.toggle('active',b.dataset.ownerPage===ownerPage));
   $('#ownerTitle').textContent=ownerPage==='analytics'?'Аналитика':ownerPage==='payments'?'Платежи':ownerPage==='cabinet'?'Кабинет':'Админы';
   $('#ownerSubtitle').textContent=ownerPage==='analytics'?'Сводка по всем админским кабинетам':ownerPage==='payments'?'Цены подписки и прием платежей для каждого админа':ownerPage==='cabinet'?'Доступы директорского кабинета':'Доступы для админского кабинета';
@@ -103,7 +140,8 @@ function render(){
   if(ownerPage==='analytics'){renderOwnerAnalytics();return}
   if(ownerPage==='payments'){renderOwnerPayments();return}
   if(ownerPage==='cabinet'){renderOwnerCabinet();return}
-  $('#dispatcherGrid').innerHTML=dispatchers.length?dispatchers.map(dispatcherCard).join(''):'<article class="card empty-card">Админы ещё не добавлены. Нажмите «Добавить админа», чтобы выдать первый доступ.</article>';
+  const shown=visibleDispatchers();
+  $('#dispatcherGrid').innerHTML=shown.length?shown.map(dispatcherCard).join(''):'<article class="card empty-card">Админы ещё не добавлены. Нажмите «Добавить админа», чтобы выдать первый доступ.</article>';
   document.querySelectorAll('.dispatcher-open').forEach(b=>b.onclick=()=>openAdminCabinet(b.dataset.id));
   document.querySelectorAll('.dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
   document.querySelectorAll('.dispatcher-details').forEach(b=>b.onclick=()=>showAdminDetails(b.dataset.id));
@@ -111,27 +149,29 @@ function render(){
 
 function renderOwnerCabinet(){
   const canManage=currentDirector?.can_manage_directors===true;
-  $('#ownerCabinet').innerHTML=`<div class="cabinet-head"><div><h2>Директора</h2><p>${canManage?'Главный директор может выдавать и закрывать доступ.':'У вас есть доступ к кабинету без права выдавать доступ другим директорам.'}</p></div>${canManage?'<button class="primary" id="addDirectorAccess">+ Добавить директора</button>':''}</div><div class="director-grid">${directors.map(d=>`<article class="director-card ${d.active?'':'disabled'}"><div class="director-card-main"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><div><small>${d.can_manage_directors?'Главный директор':'Директор'}</small><h3>${d.name||'Директор'}</h3><p>${d.email}</p></div></div><span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>${canManage&&!d.can_manage_directors?`<button class="secondary director-edit" data-id="${d.id}">Изменить</button>`:''}</article>`).join('')}</div>`;
+  $('#ownerCabinet').innerHTML=`<div class="cabinet-head"><div><h2>Директора</h2><p>${canManage?'Главный директор может выдавать и закрывать доступ.':'У вас есть доступ к кабинету без права выдавать доступ другим директорам.'}</p></div>${canManage?'<button class="primary" id="addDirectorAccess">+ Добавить директора</button>':''}</div><div class="director-grid">${directors.map(d=>`<article class="director-card ${d.active?'':'disabled'}"><div class="director-card-main"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><div><small>${d.can_manage_directors?'Главный директор':'Директор'}</small><h3>${d.name||'Директор'}</h3><p>${d.email}</p>${canManage?`<em>Пароль: ${d.password||'—'}</em>`:''}</div></div><span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>${canManage&&!d.can_manage_directors?`<button class="secondary director-edit" data-id="${d.id}">Изменить</button>`:''}</article>`).join('')}</div>`;
   const addBtn=$('#addDirectorAccess');if(addBtn)addBtn.onclick=()=>openDirectorDialog('');
   document.querySelectorAll('.director-edit').forEach(b=>b.onclick=()=>openDirectorDialog(b.dataset.id));
 }
 
 function renderOwnerPayments(){
-  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${dispatchers.map(d=>{const s=subscriptionSettings(d.payment_settings),free=paymentMode(d.payment_mode)==='free_park';return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[paymentMode(d.payment_mode)]}</b><span>${free?'Оплата не требуется':PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none}</span></div><div><small>Подписка</small>${free?'<strong>Бесплатно для водителей</strong>':`<strong>15 дней: ${s.price15.toLocaleString('ru-RU')} ₽</strong><strong>30 дней: ${s.price30.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`}).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
+  const shown=visibleDispatchers();
+  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${shown.map(d=>{const s=subscriptionSettings(d.payment_settings),free=paymentMode(d.payment_mode)==='free_park';return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[paymentMode(d.payment_mode)]}</b><span>${free?'Оплата не требуется':PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none}</span></div><div><small>Подписка</small>${free?'<strong>Бесплатно для водителей</strong>':`<strong>15 дней: ${s.price15.toLocaleString('ru-RU')} ₽</strong><strong>30 дней: ${s.price30.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`}).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
   document.querySelectorAll('#ownerPayments .dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
 }
 
 function dispatcherCard(d){
-  const count=adminDrivers(d.id).length;
+  const count=driverCounts[d.id]??adminDrivers(d.id).length;
   const mode=PAYMENT_MODES[paymentMode(d.payment_mode)];
   const provider=PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none;
   const s=subscriptionSettings(d.payment_settings);
   const free=paymentMode(d.payment_mode)==='free_park';
-  return `<article class="card dispatcher-card ${d.active?'':'disabled'}">
+  return `<article class="card dispatcher-card ${d.active?'':'disabled'} ${d.hidden_from_directors?'private-admin':''}">
     <div class="dispatcher-main">
       <div class="identity"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><button class="admin-name dispatcher-details" data-id="${d.id}" type="button"><b>${d.name}</b><small>${d.phone||'телефон не указан'}</small></button></div>
-      <div class="access"><div><small>Логин</small><b>${d.login}</b></div><div><small>Водителей</small><b>${count}</b></div><div><small>Подписка</small><b>${mode}</b><span>${free?'без оплаты':`${provider} · 15д ${s.price15} ₽ / 30д ${s.price30} ₽`}</span></div></div>
+      <div class="access"><div><small>Почта</small><b>${d.email||d.login||'—'}</b><span>${d.login||''}</span></div><div><small>Водителей</small><b>${count}</b></div><div><small>Подписка</small><b>${mode}</b><span>${free?'без оплаты':`${provider} · 15д ${s.price15} ₽ / 30д ${s.price30} ₽`}</span></div></div>
       <span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>
+      ${d.hidden_from_directors?'<span class="private-badge">Скрыт от директоров</span>':''}
     </div>
     <div class="dispatcher-actions">
       <button class="secondary dispatcher-open" data-id="${d.id}" ${d.active?'':'disabled'}>Открыть кабинет</button>
@@ -152,16 +192,18 @@ function showAdminDetails(id){
 }
 function waybillAdminId(w){const opened=String(w.openedBy||w.opened_by||''),direct=(opened.match(/(?:^|;)admin=([^;]+)/)||[])[1];if(direct)return decodeURIComponent(direct);const encoded=(opened.match(/(?:^|;)data=([^;]+)/)||[])[1];if(encoded){try{return JSON.parse(decodeURIComponent(encoded)).adminId||''}catch{}}return ''}
 async function remoteWaybillsForAnalytics(){try{const response=await fetch(`${API_BASE}/waybills?select=*&order=date.desc`,{headers:API_HEADERS,cache:'no-store'});if(!response.ok)throw new Error(await response.text());return await response.json()}catch(error){console.warn('Не удалось загрузить отчеты из Supabase',error);return []}}
-async function renderOwnerAnalytics(){
+async function renderOwnerAnalytics(selectedFrom='',selectedTo=''){
   const today=new Date().toISOString().slice(0,10),first=today.slice(0,8)+'01';
-  $('#ownerAnalytics').innerHTML=`<div class="analytics-filter"><label>С даты<input id="ownerReportFrom" type="date" value="${sessionStorage.getItem('ownerReportFrom')||first}"></label><label>До даты<input id="ownerReportTo" type="date" value="${sessionStorage.getItem('ownerReportTo')||today}"></label><button class="secondary" id="ownerReportApply">Показать</button></div><div class="analytics-loading">Загружаем отчеты из Supabase...</div>`;
-  const all=await remoteWaybillsForAnalytics(),from=$('#ownerReportFrom')?.value||first,to=$('#ownerReportTo')?.value||today;
+  const initialFrom=selectedFrom||sessionStorage.getItem('ownerReportFrom')||first,initialTo=selectedTo||sessionStorage.getItem('ownerReportTo')||today;
+  $('#ownerAnalytics').innerHTML=`<div class="analytics-filter"><label>С даты<input id="ownerReportFrom" type="date" value="${initialFrom}"></label><label>До даты<input id="ownerReportTo" type="date" value="${initialTo}"></label><button class="secondary" id="ownerReportApply">Показать</button></div><div class="analytics-loading">Загружаем отчеты из Supabase...</div>`;
+  const all=await remoteWaybillsForAnalytics(),from=initialFrom,to=initialTo;
   sessionStorage.setItem('ownerReportFrom',from);sessionStorage.setItem('ownerReportTo',to);
-  const filtered=all.filter(w=>(!from||String(w.date||'').slice(0,10)>=from)&&(!to||String(w.date||'').slice(0,10)<=to));
-  const rows=dispatchers.map(d=>{const ds=adminDrivers(d.id),wb=filtered.filter(w=>waybillAdminId(w)===d.id||(d.id==='demo'&&!waybillAdminId(w))),open=wb.filter(w=>w.status==='Открыто').length,closed=wb.filter(w=>w.status==='Закрыто').length;return {d,drivers:ds.length,waybills:wb.length,open,closed}});
+  const filtered=all.filter(w=>{const d=waybillDate(w);return (!from||d>=from)&&(!to||d<=to)});
+  const rows=visibleDispatchers().map(d=>{const drivers=driverCounts[d.id]??adminDrivers(d.id).length,wb=filtered.filter(w=>waybillAdminId(w)===d.id||(d.id==='demo'&&!waybillAdminId(w))),open=wb.filter(w=>w.status==='Открыто').length,closed=wb.filter(w=>w.status==='Закрыто').length;return {d,drivers,waybills:wb.length,open,closed}});
   const totals=rows.reduce((a,r)=>({drivers:a.drivers+r.drivers,waybills:a.waybills+r.waybills,open:a.open+r.open,closed:a.closed+r.closed}),{drivers:0,waybills:0,open:0,closed:0});
-  $('#ownerAnalytics').innerHTML=`<div class="analytics-filter"><label>С даты<input id="ownerReportFrom" type="date" value="${from}"></label><label>До даты<input id="ownerReportTo" type="date" value="${to}"></label><button class="secondary" id="ownerReportApply">Показать</button></div><div class="analytics-grid"><article><small>Админов</small><b>${dispatchers.length}</b></article><article><small>Водителей</small><b>${totals.drivers}</b></article><article><small>Открытые ЭПЛ</small><b>${totals.open}</b></article><article><small>Завершённые</small><b>${totals.closed}</b></article></div><table class="analytics-table"><thead><tr><th>Админ</th><th>Водители</th><th>Открытые</th><th>Завершённые</th><th>Всего ЭПЛ</th><th>Оплата</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.d.name}</b><span>${r.d.login}</span></td><td>${r.drivers}</td><td>${r.open}</td><td>${r.closed}</td><td>${r.waybills}</td><td>${PAYMENT_MODES[paymentMode(r.d.payment_mode)]||'—'}</td></tr>`).join('')||'<tr><td colspan="6">Данных пока нет</td></tr>'}</tbody></table>`;
-  $('#ownerReportApply').onclick=()=>renderOwnerAnalytics();
+  $('#ownerAnalytics').innerHTML=`<div class="analytics-filter"><label>С даты<input id="ownerReportFrom" type="date" value="${from}"></label><label>До даты<input id="ownerReportTo" type="date" value="${to}"></label><button class="secondary" id="ownerReportApply">Показать</button></div><div class="analytics-grid"><article><small>Админов</small><b>${rows.length}</b></article><article><small>Водителей</small><b>${totals.drivers}</b></article><article><small>Открытые ЭПЛ</small><b>${totals.open}</b></article><article><small>Завершённые</small><b>${totals.closed}</b></article></div><table class="analytics-table"><thead><tr><th>Админ</th><th>Водители</th><th>Открытые</th><th>Завершённые</th><th>Всего ЭПЛ</th><th>Оплата</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.d.name}</b><span>${r.d.login}</span></td><td>${r.drivers}</td><td>${r.open}</td><td>${r.closed}</td><td>${r.waybills}</td><td>${PAYMENT_MODES[paymentMode(r.d.payment_mode)]||'—'}</td></tr>`).join('')||'<tr><td colspan="6">Данных пока нет</td></tr>'}</tbody></table>`;
+  $('#ownerReportApply').onclick=()=>renderOwnerAnalytics($('#ownerReportFrom').value,$('#ownerReportTo').value);
+  $('#ownerReportFrom').onchange=$('#ownerReportTo').onchange=()=>renderOwnerAnalytics($('#ownerReportFrom').value,$('#ownerReportTo').value);
 }
 
 function openAdminCabinet(id){
@@ -244,6 +286,9 @@ function openDispatcher(id=''){
   editingDispatcherId=id;
   form.reset();
   form.elements.active.value='true';
+  if(form.elements.hidden_from_directors)form.elements.hidden_from_directors.checked=false;
+  const hiddenField=form.elements.hidden_from_directors?.closest('label');
+  if(hiddenField)hiddenField.classList.toggle('hidden',!directorIsMain());
   form.elements.payment_mode.value='free_park';
   form.elements.payment_provider.value='none';
   form.elements.price15.value='0';
@@ -262,6 +307,7 @@ function openDispatcher(id=''){
 
 function fillDispatcherForm(d){
   Object.entries(d).forEach(([k,v])=>{if(form.elements[k])form.elements[k].value=String(v)});
+  if(form.elements.hidden_from_directors)form.elements.hidden_from_directors.checked=d.hidden_from_directors===true;
   const settings=subscriptionSettings(d.payment_settings||{});
   if(form.elements.payment_mode)form.elements.payment_mode.value=paymentMode(d.payment_mode);
   ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>{if(form.elements[k])form.elements[k].value=settings[k]||''});
@@ -281,6 +327,7 @@ form.onsubmit=async e=>{
   const d=Object.fromEntries(new FormData(e.target));
   d.phone=formatRuPhone(d.phone);
   d.active=d.active==='true';
+  d.hidden_from_directors=directorIsMain()&&d.hidden_from_directors==='true';
   d.payment_mode=paymentMode(d.payment_mode);
   d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',price15:d.price15,price30:d.price30});
   ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>delete d[k]);

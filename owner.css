@@ -94,6 +94,14 @@ header p{color:#777}
 .analytics-table tr:last-child td{border-bottom:0}
 dialog{width:min(650px,92vw);border:1px solid #dfe3e8;border-radius:10px;padding:28px;box-shadow:0 18px 45px #0003}
 dialog::backdrop{background:#0006}
+#ownerResetDialog{width:min(560px,92vw);border:0;border-radius:22px;padding:30px;box-shadow:0 24px 80px #0005}
+#ownerResetDialog::backdrop{background:#11182799;backdrop-filter:blur(4px)}
+#ownerResetDialog h2{margin:0 32px 8px 0;font-size:26px}
+#ownerResetDialog p{margin:0 0 18px;color:#66717d;line-height:1.45}
+#ownerResetDialog .form-grid{grid-template-columns:1fr}
+#ownerResetDialog label{font-size:12px;font-weight:850;text-transform:uppercase;color:#5f6873}
+#ownerResetDialog input{min-height:46px;border-radius:12px}
+#ownerResetError{padding-top:4px;font-weight:800}
 .close{float:right;border:0;background:none;font-size:25px}
 .admin-data-box,.payment-settings-box{display:grid;gap:12px;margin:14px 0 18px;padding:16px;border-radius:10px;background:#fff;border:1px solid #dfe3e8}
 .payment-settings-box{border:2px solid #ffd21c;background:#fffbed}
@@ -118,6 +126,23 @@ dialog::backdrop{background:#0006}
 .payment-admin-card p{margin:0;color:#66717d}
 .payment-admin-card b,.payment-admin-card strong{display:block;margin-top:5px;font-size:17px}
 .payment-admin-card span{display:block;margin-top:4px;color:#66717d}
+.balance-director-panel{margin-top:16px;background:#fff;border:1px solid #dfe3e8;border-radius:10px;padding:18px}
+.balance-director-panel h2{margin:0 0 4px;font-size:22px}
+.balance-director-panel p{margin:0 0 16px;color:#66717d}
+.balance-director-list{display:grid;gap:14px}
+.balance-admin-group{display:grid;gap:8px}
+.balance-admin-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#fff8d8;border:1px solid #ffe08a;border-radius:9px}
+.balance-admin-title small{display:block;color:#66717d;font-size:11px;font-weight:800;text-transform:uppercase}
+.balance-admin-title b{display:block;margin-top:3px}
+.balance-admin-title span{font-weight:850;color:#17191c}
+.balance-driver-row{display:grid;grid-template-columns:minmax(220px,1.4fr) 120px minmax(170px,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e6e9ee;border-radius:9px;background:#fafbfc}
+.balance-driver-row b{display:block}
+.balance-driver-row span,.balance-mini-history{display:block;color:#66717d;font-size:13px}
+.balance-driver-row strong{font-size:20px}
+.balance-row-actions{display:flex;gap:7px}
+.balance-row-actions button{width:34px;height:34px;border:0;border-radius:9px;font-size:20px;font-weight:950;cursor:pointer}
+.balance-plus{background:#ffd21c;color:#17191c}
+.balance-minus{background:#fff0f0;color:#b83c3c;border:1px solid #f0caca!important}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-grid label{font-size:13px;color:#666}
 .form-grid input,.form-grid select{display:block;width:100%;padding:11px;margin-top:6px;border:1px solid #cfd6df;border-radius:7px;background:#fff}
@@ -142,6 +167,7 @@ dialog::backdrop{background:#0006}
   .director-card{grid-template-columns:1fr}
   .cabinet-head{align-items:stretch;flex-direction:column}
   .payment-admin-card{grid-template-columns:1fr}
+  .balance-driver-row{grid-template-columns:1fr}
   .dispatcher-actions,.edit-actions{justify-content:stretch}
   .dispatcher-actions button,.edit-actions button{flex:1 1 auto}
   .access{grid-template-columns:1fr;min-width:0}

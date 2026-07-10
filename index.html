@@ -68,6 +68,7 @@
         <label>Тип оплаты<select name="payment_mode">
           <option value="free_park">Для таксопарков</option>
           <option value="subscription">Платеж по подписке</option>
+          <option value="admin_balance">Пополнить через админку</option>
         </select></label>
         <label class="paid-only">Провайдер<select name="payment_provider">
           <option value="none">Без провайдера</option>
@@ -76,6 +77,7 @@
         </select></label>
         <label class="paid-only">Цена 15 дней<input name="price15" type="number" min="0" step="1" value="0"></label>
         <label class="paid-only">Цена 30 дней<input name="price30" type="number" min="0" step="1" value="0"></label>
+        <label class="admin-balance-only hidden">Цена за выпуск ЭПЛ<input name="epPrice" type="number" min="0" step="1" value="0"></label>
         <label class="paid-only">Лицевой счет<input name="account" placeholder="Номер лицевого счета"></label>
         <label class="paid-only">Shop ID / Merchant Login<input name="shopId" placeholder="ID магазина"></label>
         <label class="paid-only">Secret key<input name="secretKey" placeholder="Секретный ключ"></label>
@@ -121,6 +123,7 @@
       <label>Почта<input name="email" type="email" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>
       <label class="reset-code-field hidden">Код из письма<input name="code" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6"></label>
       <label class="reset-password-field hidden">Новый пароль<input name="password" type="password" minlength="6" autocomplete="new-password"></label>
+      <label class="reset-password-field hidden">Повторите новый пароль<input name="passwordConfirm" type="password" minlength="6" autocomplete="new-password"></label>
     </div>
     <div id="ownerResetError" class="error"></div>
     <div class="actions">

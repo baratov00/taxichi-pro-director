@@ -308,7 +308,7 @@ function openDispatcher(id=''){
 }
 
 function fillDispatcherForm(d){
-  Object.entries(d).forEach(([k,v])=>{if(form.elements[k])form.elements[k].value=String(v)});
+  Object.entries(d).forEach(([k,v])=>{if(form.elements[k]&&k!=='hidden_from_directors')form.elements[k].value=String(v)});
   if(form.elements.hidden_from_directors)form.elements.hidden_from_directors.checked=boolValue(d.hidden_from_directors);
   const settings=subscriptionSettings(d.payment_settings||{});
   if(form.elements.payment_mode)form.elements.payment_mode.value=paymentMode(d.payment_mode);
@@ -329,7 +329,7 @@ form.onsubmit=async e=>{
   const d=Object.fromEntries(new FormData(e.target));
   d.phone=formatRuPhone(d.phone);
   d.active=d.active==='true';
-  d.hidden_from_directors=directorIsMain()&&boolValue(d.hidden_from_directors);
+  d.hidden_from_directors=directorIsMain()&&!!form.elements.hidden_from_directors?.checked;
   d.payment_mode=paymentMode(d.payment_mode);
   d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',price15:d.price15,price30:d.price30});
   ['shopId','secretKey','account','successUrl','failUrl','price15','price30'].forEach(k=>delete d[k]);

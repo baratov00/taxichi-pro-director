@@ -4,6 +4,7 @@ const OWNER_EMAIL='baratov329@mail.ru';
 const OWNER_DEFAULT_PASSWORD='razoqiy123';
 const ADMIN_SITE_URL='https://admin.taxichi.pro/';
 const SUPABASE_URL='https://qquvbedufztponyxneqa.supabase.co',SUPABASE_KEY='sb_publishable_8lZ9AfMvjZOx1Xz6JTlNFg_uKK0qjr8',API_BASE=SUPABASE_URL+'/rest/v1',API_HEADERS={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Accept-Profile':'public','Content-Profile':'public'};
+const RESET_FUNCTION_URL=`${SUPABASE_URL}/functions/v1/director-password-reset`;
 const DISPATCHERS_TABLE='taxichi_pro_dispatchers';
 const DIRECTORS_TABLE='taxichi_pro_directors';
 const DEFAULT_DISPATCHERS=[{id:'demo',name:'Иванова Мария',phone:'+7 999 999-77-42',login:'admin',password:'1234',active:true}];
@@ -110,21 +111,57 @@ $('#ownerLogout').onclick=()=>{sessionStorage.removeItem('taxichiOwnerSession');
 document.querySelectorAll('[data-owner-page]').forEach(b=>b.onclick=()=>{ownerPage=b.dataset.ownerPage;render()});
 
 const resetDialog=$('#ownerResetDialog'),resetForm=$('#ownerResetForm');
-$('#forgotOwnerPassword').onclick=()=>{resetForm.reset();$('#ownerResetError').textContent='';resetDialog.showModal()};
+let resetStage='request';
+function setResetStage(stage){
+  resetStage=stage;
+  const verify=stage==='verify';
+  document.querySelectorAll('.reset-code-field,.reset-password-field').forEach(el=>el.classList.toggle('hidden',!verify));
+  resetForm.elements.code.required=verify;
+  resetForm.elements.password.required=verify;
+  $('#ownerResetSubmit').textContent=verify?'Сменить пароль':'Отправить код';
+}
+async function resetPasswordRequest(body){
+  const response=await fetch(RESET_FUNCTION_URL,{method:'POST',headers:{...API_HEADERS,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok){
+    const message=result.error==='email_not_found'?'Почта не найдена':result.error==='mail_not_configured'||(!result.error&&response.status===404)?'Отправка писем пока не настроена':result.error==='bad_code'?'Неверный или просроченный код':result.error==='short_password'?'Пароль должен быть не короче 6 символов':'Не удалось отправить код. Попробуйте ещё раз.';
+    throw new Error(message);
+  }
+  return result;
+}
+$('#forgotOwnerPassword').onclick=()=>{resetForm.reset();setResetStage('request');$('#ownerResetError').textContent='';resetDialog.showModal()};
 $('.reset-close').onclick=$('.reset-cancel').onclick=()=>resetDialog.close();
-resetForm.onsubmit=e=>{
+resetForm.onsubmit=async e=>{
   e.preventDefault();
+  const submit=$('#ownerResetSubmit');
+  submit.disabled=true;
+  $('#ownerResetError').textContent='';
+  try{
   const d=Object.fromEntries(new FormData(e.target));
   const email=String(d.email||'').trim().toLowerCase();
-  const director=directors.find(x=>x.email===email&&x.active!==false);
-  if(!director){$('#ownerResetError').textContent='Эта почта не привязана к директорскому кабинету';return}
-  director.password=d.password;
-  if(currentDirector&&currentDirector.email===director.email)currentDirector.password=d.password;
-  saveDirectorsLocal();
-  saveDirectorRemote(director).catch(error=>console.warn('Не удалось сохранить новый пароль директора',error));
-  resetDialog.close();
-  $('#ownerError').textContent='Пароль обновлен. Войдите с новым паролем.';
+    if(resetStage==='request'){
+      await resetPasswordRequest({action:'request',email});
+      setResetStage('verify');
+      $('#ownerResetError').textContent='Код отправлен на почту. Введите код и новый пароль.';
+      return;
+    }
+    await resetPasswordRequest({action:'verify',email,code:String(d.code||'').trim(),password:d.password});
+    await loadDirectorsRemote();
+    resetDialog.close();
+    $('#ownerError').textContent='Пароль обновлен. Войдите с новым паролем.';
+  }catch(error){
+    $('#ownerResetError').textContent=error.message;
+  }finally{
+    submit.disabled=false;
+  }
 };
+const resetParams=new URLSearchParams(location.search);
+if(resetParams.has('resetEmail')||resetParams.has('resetCode')){
+  $('#forgotOwnerPassword').click();
+  resetForm.elements.email.value=resetParams.get('resetEmail')||'';
+  resetForm.elements.code.value=resetParams.get('resetCode')||'';
+  setResetStage('verify');
+}
 
 function render(){
   const main=directorIsMain();

@@ -6,8 +6,8 @@
   <title>Taxichi Pro - кабинет директора</title>
   <link rel="icon" href="taxichi-pro-logo.png">
   <link rel="apple-touch-icon" href="taxichi-pro-logo.png">
-  <link rel="stylesheet" href="owner.css?v=20260710-4">
-  <link rel="stylesheet" href="owner-analytics.css?v=20260710-4">
+  <link rel="stylesheet" href="owner.css?v=20260710-6">
+  <link rel="stylesheet" href="owner-analytics.css?v=20260710-6">
 </head>
 <body>
 <section id="ownerLogin" class="login">
@@ -115,19 +115,20 @@
 <dialog id="ownerResetDialog">
   <button class="close reset-close">×</button>
   <h2>Сброс пароля директора</h2>
-  <p>Введите почту директора и новый пароль. После сохранения главный директор увидит новый пароль в карточке директора.</p>
+  <p>Введите почту директора. Если почта есть в кабинете, на неё придёт код для смены пароля.</p>
   <form id="ownerResetForm" autocomplete="off">
     <div class="form-grid">
       <label>Почта<input name="email" type="email" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>
-      <label>Новый пароль<input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
+      <label class="reset-code-field hidden">Код из письма<input name="code" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6"></label>
+      <label class="reset-password-field hidden">Новый пароль<input name="password" type="password" minlength="6" autocomplete="new-password"></label>
     </div>
     <div id="ownerResetError" class="error"></div>
     <div class="actions">
       <button type="button" class="cancel reset-cancel">Отмена</button>
-      <button type="submit" class="primary">Сбросить пароль</button>
+      <button type="submit" id="ownerResetSubmit" class="primary">Отправить код</button>
     </div>
   </form>
 </dialog>
-<script src="owner.js?v=20260710-4"></script>
+<script src="owner.js?v=20260710-6"></script>
 </body>
 </html>

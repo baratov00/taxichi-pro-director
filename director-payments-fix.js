@@ -3,8 +3,7 @@
     const s=subscriptionSettings(d.payment_settings);
     const mode=paymentMode(d.payment_mode);
     const free=mode==='free_park';
-    const adminBalance=mode==='admin_balance';
-    return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[mode]}</b><span>${free?'Оплата не требуется':adminBalance?'Баланс пополняет админ':PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none}</span></div><div><small>Условия</small>${free?'<strong>Бесплатно для водителей</strong>':adminBalance?`<strong>ЭПЛ: ${s.epPrice.toLocaleString('ru-RU')} ₽</strong>`:`<strong>15 дней: ${s.price15.toLocaleString('ru-RU')} ₽</strong><strong>30 дней: ${s.price30.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`;
+    return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[mode]}</b><span>${free?'Оплата не требуется':'Баланс пополняет админ'}</span></div><div><small>Условия</small>${free?'<strong>Бесплатно для водителей</strong>':`<strong>ЭПЛ: ${s.epPrice.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`;
   }
 
   window.renderOwnerPayments=async function(){

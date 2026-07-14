@@ -68,22 +68,9 @@
       <div class="form-grid">
         <label>Тип оплаты<select name="payment_mode">
           <option value="free_park">Для таксопарков</option>
-          <option value="subscription">Платеж по подписке</option>
           <option value="admin_balance">Пополнить через админку</option>
         </select></label>
-        <label class="paid-only">Провайдер<select name="payment_provider">
-          <option value="none">Без провайдера</option>
-          <option value="robokassa">Robokassa</option>
-          <option value="yookassa">ЮKassa</option>
-        </select></label>
-        <label class="paid-only">Цена 15 дней<input name="price15" type="number" min="0" step="1" value="0"></label>
-        <label class="paid-only">Цена 30 дней<input name="price30" type="number" min="0" step="1" value="0"></label>
         <label class="admin-balance-only hidden">Цена за выпуск ЭПЛ<input name="epPrice" type="number" min="0" step="1" value="0"></label>
-        <label class="paid-only">Лицевой счет<input name="account" placeholder="Номер лицевого счета"></label>
-        <label class="paid-only">Shop ID / Merchant Login<input name="shopId" placeholder="ID магазина"></label>
-        <label class="paid-only">Secret key<input name="secretKey" placeholder="Секретный ключ"></label>
-        <label class="paid-only">Success URL<input name="successUrl" placeholder="https://..."></label>
-        <label class="paid-only">Fail URL<input name="failUrl" placeholder="https://..."></label>
       </div>
     </section>
     <div class="actions edit-actions">
@@ -133,7 +120,7 @@
     </div>
   </form>
 </dialog>
-<script src="owner.js?v=20260713-2"></script>
-<script src="director-payments-fix.js?v=20260713-1"></script>
+<script src="owner.js?v=20260714-1"></script>
+<script src="director-payments-fix.js?v=20260714-1"></script>
 </body>
 </html>

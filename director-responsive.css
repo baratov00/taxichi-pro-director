@@ -1,23 +1,40 @@
-@media(max-width:1366px) and (min-width:801px){
-  aside{width:220px;padding:18px 14px}
-  main{margin-left:220px;width:calc(100% - 220px);padding:22px 26px}
-  .brand{margin-bottom:22px;font-size:18px}
-  .brand-copy b{font-size:18px}
-  nav button,nav a{padding:10px 11px;font-size:14px}
-  h1{font-size:25px}
-  header p{margin:6px 0 0;font-size:13px}
-  .dispatcher-list{gap:8px;margin-top:16px}
-  .dispatcher-card{padding:9px 11px}
-  .dispatcher-main{grid-template-columns:minmax(180px,.9fr) minmax(360px,1.4fr) auto auto;gap:9px}
-  .access{min-width:min(560px,50vw);gap:6px}
-  .access div{min-height:56px;padding:7px 8px}
-  .dispatcher-actions button{padding:8px 10px}
-  .card,.cabinet-head,.director-card,.payment-admin-card,.balance-director-panel{border-radius:7px}
-  .analytics-grid{grid-template-columns:repeat(4,minmax(130px,1fr));gap:9px}
-  .analytics-grid article{padding:13px}
-  .analytics-grid b{font-size:24px}
-  .analytics-table th,.analytics-table td{padding:10px 12px}
-  .payment-admin-card{grid-template-columns:minmax(190px,1.1fr) minmax(190px,1fr) minmax(160px,.8fr) auto;padding:12px;gap:10px}
-  .balance-driver-row{grid-template-columns:minmax(190px,1.3fr) 110px minmax(150px,1fr) auto;padding:10px 12px}
-  dialog{max-height:90vh;overflow:auto}
+/*
+  Stable desktop layout for the director cabinet.
+  Small laptop screens get the same cabinet size with horizontal scroll instead
+  of a compressed mobile/tablet layout.
+*/
+:root{--taxichi-director-width:1280px;--taxichi-sidebar-width:250px}
+html{min-width:var(--taxichi-director-width);overflow-x:auto;background:#f4f5f6}
+body{min-width:var(--taxichi-director-width);overflow-x:auto}
+.app{min-width:var(--taxichi-director-width)}
+aside{width:var(--taxichi-sidebar-width)!important;padding:25px 18px!important}
+main{margin-left:var(--taxichi-sidebar-width)!important;width:calc(var(--taxichi-director-width) - var(--taxichi-sidebar-width))!important;min-height:100vh;padding:30px 36px!important}
+.brand-copy,nav,.account span,.account b{display:grid!important}
+nav{display:flex!important}
+nav button,nav a{padding:12px 13px!important;border-radius:8px!important;font-size:14px!important}
+.brand{margin-bottom:30px!important}
+.brand-copy b{font-size:20px!important}
+header{align-items:center!important;flex-direction:row!important;gap:18px}
+h1{font-size:29px!important}
+.dispatcher-list{gap:10px;margin-top:20px}
+.dispatcher-card{grid-template-columns:minmax(0,1fr) auto!important;padding:11px 14px!important}
+.dispatcher-main{grid-template-columns:minmax(210px,.85fr) minmax(430px,1.6fr) auto auto!important;align-items:center!important;gap:11px!important}
+.access{grid-template-columns:repeat(3,minmax(142px,1fr))!important;min-width:610px!important;gap:8px!important}
+.access div{min-height:62px!important}
+.dispatcher-actions{justify-content:flex-end!important}
+.dispatcher-actions button{flex:0 0 auto!important;white-space:nowrap}
+.payment-admin-card{grid-template-columns:minmax(220px,1.2fr) minmax(220px,1fr) minmax(190px,.8fr) auto!important;gap:14px!important;padding:16px!important}
+.director-card{grid-template-columns:minmax(0,1fr) auto auto!important}
+.cabinet-head{align-items:center!important;flex-direction:row!important}
+.analytics-filter{display:flex!important}
+.analytics-grid{grid-template-columns:repeat(4,minmax(150px,1fr))!important}
+.analytics-table{min-width:900px}
+.admin-details-grid{grid-template-columns:repeat(3,minmax(180px,1fr))!important}
+.form-grid{grid-template-columns:1fr 1fr!important}
+.edit-actions{justify-content:flex-end!important}
+.edit-actions button{flex:0 0 auto!important}
+dialog{max-height:90vh;overflow:auto}
+
+@media(max-width:1279px){
+  html,body{width:var(--taxichi-director-width)}
 }

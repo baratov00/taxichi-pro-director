@@ -7,7 +7,7 @@ const SUPABASE_URL='https://qquvbedufztponyxneqa.supabase.co',SUPABASE_KEY='sb_p
 const RESET_FUNCTION_URL=`${SUPABASE_URL}/functions/v1/director-password-reset`;
 const DISPATCHERS_TABLE='taxichi_pro_dispatchers';
 const DIRECTORS_TABLE='taxichi_pro_directors';
-const DEFAULT_DISPATCHERS=[{id:'demo',name:'Иванова Мария',phone:'+7 999 999-77-42',login:'admin',password:'1234',active:true}];
+const DEFAULT_DISPATCHERS=[];
 const DEFAULT_DIRECTORS=[{id:'main',name:'Асадбек Баратов',email:OWNER_EMAIL,password:OWNER_DEFAULT_PASSWORD,active:true,can_manage_directors:true}];
 const PAYMENT_MODES={
   free_park:'Для таксопарков',
@@ -25,8 +25,8 @@ const normalizePaymentSettings=value=>{
 };
 const normalizeDispatcher=(d,i)=>({id:d.id||`disp-${i+1}`,name:d.name||'Админ',email:d.email||'',phone:d.phone||'',login:d.login||'',password:d.password||'',active:d.active!==false,hidden_from_directors:boolValue(d.hidden_from_directors),payment_mode:paymentMode(d.payment_mode||'admin_balance'),payment_provider:d.payment_provider||'none',payment_settings:subscriptionSettings(normalizePaymentSettings(d.payment_settings))});
 const normalizeDirector=(d,i)=>({id:d.id||`director-${i+1}`,name:d.name||'Директор',email:String(d.email||'').trim().toLowerCase(),password:d.password||'',active:d.active!==false,can_manage_directors:boolValue(d.can_manage_directors)});
-let dispatchers=(load('taxichiProDispatchers',[])||[]).map(normalizeDispatcher);
-if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchers()}
+let dispatchers=(load('taxichiProDispatchers',[])||[]).filter(d=>String(d.id)!=='demo'&&d.name!=='Иванова Мария').map(normalizeDispatcher);
+if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchersLocal()}
 let directors=(load('taxichiProDirectors',DEFAULT_DIRECTORS)||DEFAULT_DIRECTORS).map(normalizeDirector);
 let currentDirector=null;
 const adminStorageKey=(id,key)=>`taxichiProAdmin:${id}:${key}`;

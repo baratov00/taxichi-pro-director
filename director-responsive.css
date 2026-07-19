@@ -38,3 +38,38 @@ dialog{max-height:90vh;overflow:auto}
 @media(max-width:1535px){
   html,body{width:var(--taxichi-director-width)}
 }
+
+@media(max-width:760px){
+  html,body{min-width:0!important;width:auto!important;overflow-x:hidden!important}
+  .app{display:block!important;min-width:0!important;width:100%!important}
+  aside{position:sticky!important;top:0!important;z-index:20!important;width:100%!important;height:auto!important;inset:auto!important;padding:10px 12px!important;display:block!important}
+  .brand{margin:0 0 10px!important;font-size:18px!important}
+  .brand img{width:36px!important}
+  .brand-copy{display:grid!important}
+  .brand-copy b{font-size:18px!important}
+  nav{display:flex!important;flex-direction:row!important;gap:8px!important;overflow-x:auto!important;padding-bottom:4px!important}
+  nav [data-owner-page="cabinet"]{margin-top:0!important}
+  nav button,nav a{width:auto!important;min-width:max-content!important;min-height:42px!important;flex:0 0 auto!important;padding:9px 12px!important;font-size:13px!important}
+  .account{display:none!important}
+  main{margin-left:0!important;width:100%!important;min-height:auto!important;padding:18px 12px 26px!important}
+  header{align-items:stretch!important;flex-direction:column!important;gap:14px!important}
+  h1{font-size:25px!important;line-height:1.1!important}
+  #addDispatcher{width:100%!important;min-height:44px!important}
+  .dispatcher-list{gap:10px!important;margin-top:16px!important}
+  .dispatcher-card{grid-template-columns:1fr!important;padding:13px!important}
+  .dispatcher-main{grid-template-columns:1fr!important;align-items:stretch!important;gap:10px!important}
+  .access{grid-template-columns:1fr!important;min-width:0!important}
+  .dispatcher-actions{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;justify-content:stretch!important}
+  .dispatcher-actions button{width:100%!important}
+  .payment-admin-card,.director-card,.cabinet-head,.balance-driver-row{grid-template-columns:1fr!important;align-items:stretch!important}
+  .cabinet-head{flex-direction:column!important}
+  .analytics-filter{display:grid!important;grid-template-columns:1fr!important}
+  .analytics-grid{grid-template-columns:1fr 1fr!important}
+  .analytics-table{min-width:760px!important}
+  .owner-analytics-panel,.owner-payments-panel,.owner-cabinet-panel{overflow-x:auto!important}
+  .admin-details-grid,.form-grid{grid-template-columns:1fr!important}
+  .edit-actions{display:grid!important;grid-template-columns:1fr!important;gap:9px!important;justify-content:stretch!important}
+  .edit-actions .action-spacer{display:none!important}
+  .edit-actions button{width:100%!important}
+  dialog,#ownerResetDialog,#adminDetailsDialog{width:calc(100vw - 18px)!important;max-width:none!important;max-height:calc(100dvh - 18px)!important;padding:18px!important;border-radius:14px!important}
+}

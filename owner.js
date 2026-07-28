@@ -16,7 +16,7 @@ const PAYMENT_MODES={
 };
 const PAYMENT_PROVIDERS={none:'Без платежного провайдера',robokassa:'Robokassa',yookassa:'ЮKassa'};
 const paymentMode=value=>value==='free_park'?'free_park':value==='subscription'?'subscription':'admin_balance';
-const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),epPrice:Number(value?.epPrice||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||'',paymentUrl:value?.paymentUrl||value?.checkoutUrl||'',checkoutUrl:value?.checkoutUrl||value?.paymentUrl||'',paymentUrl15:value?.paymentUrl15||'',paymentUrl30:value?.paymentUrl30||'',yookassaReturnUrl:value?.yookassaReturnUrl||value?.successUrl||''});
+const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),epPrice:Number(value?.epPrice||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||'',paymentUrl:value?.paymentUrl||value?.checkoutUrl||'',checkoutUrl:value?.checkoutUrl||value?.paymentUrl||'',paymentUrl15:value?.paymentUrl15||'',paymentUrl30:value?.paymentUrl30||'',yookassaReturnUrl:value?.yookassaReturnUrl||value?.successUrl||'',directorView:value?.directorView||null});
 const directorIsMain=()=>currentDirector?.can_manage_directors===true;
 const boolValue=value=>value===true||value==='true'||value===1||value==='1';
 const normalizePaymentSettings=value=>{
@@ -283,12 +283,19 @@ async function renderOwnerAnalytics(selectedFrom='',selectedTo=''){
   $('#ownerReportFrom').onchange=$('#ownerReportTo').onchange=()=>renderOwnerAnalytics($('#ownerReportFrom').value,$('#ownerReportTo').value);
 }
 
-function openAdminCabinet(id){
+async function openAdminCabinet(id){
   const d=dispatchers.find(x=>x.id===id);
   if(!d)return;
   if(!d.active){alert('Сначала откройте доступ этому админу');return}
-  sessionStorage.setItem('taxichiDispatcherSession',d.id);
-  window.open(`${ADMIN_SITE_URL}?admin=${encodeURIComponent(d.id)}`,'_blank');
+  const settings={...normalizePaymentSettings(d.payment_settings||{})};
+  const token=(crypto?.randomUUID?.()||String(Date.now())+Math.random().toString(16).slice(2)).replace(/[^a-zA-Z0-9-]/g,'');
+  settings.directorView={token,expiresAt:new Date(Date.now()+10*60*1000).toISOString(),by:currentDirector?.email||''};
+  try{
+    await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?id=eq.${encodeURIComponent(d.id)}`,{method:'PATCH',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({payment_settings:settings,updated_at:new Date().toISOString()})});
+  }catch(error){
+    console.warn('Не удалось создать временный доступ директора',error);
+  }
+  window.open(`${ADMIN_SITE_URL}?admin=${encodeURIComponent(d.id)}&directorView=${encodeURIComponent(token)}`,'_blank');
 }
 
 const dialog=$('#dispatcherDialog'),form=$('#dispatcherForm');

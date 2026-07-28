@@ -5,6 +5,7 @@ const OWNER_DEFAULT_PASSWORD='razoqiy123';
 const ADMIN_SITE_URL='https://admin.taxichi.pro/';
 const SUPABASE_URL='https://qquvbedufztponyxneqa.supabase.co',SUPABASE_KEY='sb_publishable_8lZ9AfMvjZOx1Xz6JTlNFg_uKK0qjr8',API_BASE=SUPABASE_URL+'/rest/v1',API_HEADERS={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Accept-Profile':'public','Content-Profile':'public'};
 const RESET_FUNCTION_URL=`${SUPABASE_URL}/functions/v1/director-password-reset`;
+const AUTH_FUNCTION_URL=`${SUPABASE_URL}/functions/v1/taxichi-auth`;
 const DISPATCHERS_TABLE='taxichi_pro_dispatchers';
 const DIRECTORS_TABLE='taxichi_pro_directors';
 const DEFAULT_DISPATCHERS=[];
@@ -29,7 +30,7 @@ const normalizeDirector=(d,i)=>({id:d.id||`director-${i+1}`,name:d.name||'Дир
 let dispatchers=(load('taxichiProDispatchers',[])||[]).filter(d=>String(d.id)!=='demo'&&d.name!=='Иванова Мария').map(normalizeDispatcher);
 if(!dispatchers.length){dispatchers=[...DEFAULT_DISPATCHERS];saveDispatchersLocal()}
 let directors=(load('taxichiProDirectors',DEFAULT_DIRECTORS)||DEFAULT_DIRECTORS).map(normalizeDirector);
-let currentDirector=null;
+let currentDirector=null,currentDirectorSessionToken=sessionStorage.getItem('taxichiDirectorSessionToken')||'';
 const adminStorageKey=(id,key)=>`taxichiProAdmin:${id}:${key}`;
 const adminDrivers=id=>load(adminStorageKey(id,'taxichiProDrivers'),id==='demo'?load('taxichiProDrivers',[]):[]);
 const adminWaybills=id=>load(adminStorageKey(id,'taxichiProWaybills'),id==='demo'?load('taxichiProWaybills',[]):[]);
@@ -47,6 +48,14 @@ async function remoteDispatchers(){
   return (await response.json()).map(normalizeDispatcher);
 }
 async function saveDispatcherRemote(d){
+  if(currentDirectorSessionToken){
+    try{
+      const result=await taxichiAuth('upsertDispatcher',{directorSessionToken:currentDirectorSessionToken,dispatcher:dispatcherPayload(d)});
+      if(result?.ok)return;
+    }catch(error){
+      console.warn('Серверное сохранение админа не удалось, используем временный прямой режим',error);
+    }
+  }
   const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?on_conflict=id`,{method:'POST',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(dispatcherPayload(d))});
   if(!response.ok)throw new Error(await response.text());
 }
@@ -128,20 +137,34 @@ async function ensureMainDirector(){let main=directors.find(d=>d.email===OWNER_E
 function ownerAccount(){const saved=load('taxichiProOwnerAccount',null);return {email:OWNER_EMAIL,password:saved?.password||OWNER_DEFAULT_PASSWORD}}
 function saveOwnerPassword(password){localStorage.setItem('taxichiProOwnerAccount',JSON.stringify({email:OWNER_EMAIL,password}))}
 function formatRuPhone(raw){const rawDigits=String(raw||'').replace(/\D/g,''),digits=(rawDigits.startsWith('8')?'7'+rawDigits.slice(1):rawDigits.startsWith('7')?rawDigits:'7'+rawDigits).slice(0,11),n=digits.slice(1),a=n.slice(0,3),b=n.slice(3,6),c=n.slice(6,8),d=n.slice(8,10);return '+7'+(a?' '+a:'')+(b?' '+b:'')+(c?'-'+c:'')+(d?'-'+d:'')}
-function enter(director){currentDirector=director||directors[0]||DEFAULT_DIRECTORS[0];sessionStorage.setItem('taxichiOwnerSession',currentDirector.email);$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');document.querySelector('.account b').textContent=currentDirector.name||'Директор';document.querySelector('.account span').textContent=currentDirector.can_manage_directors?'Главный директор':'Директор';if(!directorIsMain()&&ownerPage==='cabinet')ownerPage='admins';render();loadDriverCountsRemote()}
+async function taxichiAuth(action,payload){
+  const response=await fetch(AUTH_FUNCTION_URL,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Object.assign(new Error(result.error||'auth_failed'),{status:response.status,result});
+  return result;
+}
+function enter(director,sessionToken=''){currentDirector=director||directors[0]||DEFAULT_DIRECTORS[0];if(sessionToken){currentDirectorSessionToken=sessionToken;sessionStorage.setItem('taxichiDirectorSessionToken',sessionToken)}sessionStorage.setItem('taxichiOwnerSession',currentDirector.email);$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');document.querySelector('.account b').textContent=currentDirector.name||'Директор';document.querySelector('.account span').textContent=currentDirector.can_manage_directors?'Главный директор':'Директор';if(!directorIsMain()&&ownerPage==='cabinet')ownerPage='admins';render();loadDriverCountsRemote()}
 
 $('#ownerLoginForm').onsubmit=async e=>{
   e.preventDefault();
   await loadDirectorsRemote();await ensureMainDirector();
   const d=Object.fromEntries(new FormData(e.target)),email=String(d.email||'').trim().toLowerCase();
-  const director=directors.find(x=>x.email===email&&x.password===d.password&&x.active!==false);
+  let director=null,sessionToken='';
+  try{
+    const result=await taxichiAuth('directorLogin',{email,password:d.password});
+    director=result.director?normalizeDirector(result.director,0):null;
+    sessionToken=result.sessionToken||'';
+  }catch(error){
+    console.warn('Серверный вход директора не удался, используем временный прямой режим',error);
+    director=directors.find(x=>x.email===email&&x.password===d.password&&x.active!==false);
+  }
   if(director){
     $('#ownerError').textContent='';
-    enter(director);
+    enter(director,sessionToken);
   }else $('#ownerError').textContent='Неверный логин или пароль';
 };
 const savedOwnerSession=sessionStorage.getItem('taxichiOwnerSession');if(savedOwnerSession){currentDirector=directors.find(d=>d.email===savedOwnerSession)||directors[0];enter(currentDirector)}
-$('#ownerLogout').onclick=()=>{sessionStorage.removeItem('taxichiOwnerSession');$('#ownerApp').classList.add('hidden');$('#ownerLogin').classList.remove('hidden')};
+$('#ownerLogout').onclick=()=>{sessionStorage.removeItem('taxichiOwnerSession');sessionStorage.removeItem('taxichiDirectorSessionToken');currentDirectorSessionToken='';$('#ownerApp').classList.add('hidden');$('#ownerLogin').classList.remove('hidden')};
 document.querySelectorAll('[data-owner-page]').forEach(b=>b.onclick=()=>{ownerPage=b.dataset.ownerPage;render()});
 
 const resetDialog=$('#ownerResetDialog'),resetForm=$('#ownerResetForm');
@@ -287,13 +310,24 @@ async function openAdminCabinet(id){
   const d=dispatchers.find(x=>x.id===id);
   if(!d)return;
   if(!d.active){alert('Сначала откройте доступ этому админу');return}
-  const settings={...normalizePaymentSettings(d.payment_settings||{})};
-  const token=(crypto?.randomUUID?.()||String(Date.now())+Math.random().toString(16).slice(2)).replace(/[^a-zA-Z0-9-]/g,'');
-  settings.directorView={token,expiresAt:new Date(Date.now()+10*60*1000).toISOString(),by:currentDirector?.email||''};
-  try{
-    await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?id=eq.${encodeURIComponent(d.id)}`,{method:'PATCH',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({payment_settings:settings,updated_at:new Date().toISOString()})});
-  }catch(error){
-    console.warn('Не удалось создать временный доступ директора',error);
+  let token='';
+  if(currentDirectorSessionToken){
+    try{
+      const result=await taxichiAuth('createDirectorView',{directorSessionToken:currentDirectorSessionToken,adminId:d.id});
+      token=result.token||'';
+    }catch(error){
+      console.warn('Серверный временный доступ директора не создан, используем временный прямой режим',error);
+    }
+  }
+  if(!token){
+    const settings={...normalizePaymentSettings(d.payment_settings||{})};
+    token=(crypto?.randomUUID?.()||String(Date.now())+Math.random().toString(16).slice(2)).replace(/[^a-zA-Z0-9-]/g,'');
+    settings.directorView={token,expiresAt:new Date(Date.now()+10*60*1000).toISOString(),by:currentDirector?.email||''};
+    try{
+      await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?id=eq.${encodeURIComponent(d.id)}`,{method:'PATCH',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({payment_settings:settings,updated_at:new Date().toISOString()})});
+    }catch(error){
+      console.warn('Не удалось создать временный доступ директора',error);
+    }
   }
   window.open(`${ADMIN_SITE_URL}?admin=${encodeURIComponent(d.id)}&directorView=${encodeURIComponent(token)}`,'_blank');
 }

@@ -11,11 +11,12 @@ const DEFAULT_DISPATCHERS=[];
 const DEFAULT_DIRECTORS=[{id:'main',name:'Асадбек Баратов',email:OWNER_EMAIL,password:OWNER_DEFAULT_PASSWORD,active:true,can_manage_directors:true}];
 const PAYMENT_MODES={
   free_park:'Для таксопарков',
+  subscription:'Оплата по подписке',
   admin_balance:'Пополнить через админку'
 };
 const PAYMENT_PROVIDERS={none:'Без платежного провайдера',robokassa:'Robokassa',yookassa:'ЮKassa'};
-const paymentMode=value=>value==='free_park'?'free_park':'admin_balance';
-const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),epPrice:Number(value?.epPrice||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||''});
+const paymentMode=value=>value==='free_park'?'free_park':value==='subscription'?'subscription':'admin_balance';
+const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),epPrice:Number(value?.epPrice||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||'',paymentUrl:value?.paymentUrl||value?.checkoutUrl||'',checkoutUrl:value?.checkoutUrl||value?.paymentUrl||'',paymentUrl15:value?.paymentUrl15||'',paymentUrl30:value?.paymentUrl30||'',yookassaReturnUrl:value?.yookassaReturnUrl||value?.successUrl||''});
 const directorIsMain=()=>currentDirector?.can_manage_directors===true;
 const boolValue=value=>value===true||value==='true'||value===1||value==='1';
 const normalizePaymentSettings=value=>{
@@ -52,6 +53,12 @@ async function saveDispatcherRemote(d){
 async function deleteDispatcherRemote(id){
   const response=await fetch(`${API_BASE}/${DISPATCHERS_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...API_HEADERS,'Prefer':'return=minimal'}});
   if(!response.ok)throw new Error(await response.text());
+}
+async function deleteDispatcherDriverProfiles(id){
+  const response=await fetch(`${API_BASE}/driver_profiles?select=id,payload`,{headers:API_HEADERS,cache:'no-store'});
+  if(!response.ok)throw new Error(await response.text());
+  const rows=(await response.json()).filter(row=>payloadAdminId(row.payload)===id);
+  await Promise.all(rows.map(row=>fetch(`${API_BASE}/driver_profiles?id=eq.${encodeURIComponent(row.id)}`,{method:'DELETE',headers:{...API_HEADERS,'Prefer':'return=minimal'}})));
 }
 async function loadDispatchersRemote(){
   try{
@@ -223,7 +230,7 @@ function renderOwnerCabinet(){
 
 async function renderOwnerPayments(){
   const shown=visibleDispatchers();
-  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${shown.map(d=>{const s=subscriptionSettings(d.payment_settings),mode=paymentMode(d.payment_mode),free=mode==='free_park';return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[mode]}</b><span>${free?'Оплата не требуется':'Баланс пополняет админ'}</span></div><div><small>Условия</small>${free?'<strong>Бесплатно для водителей</strong>':`<strong>ЭПЛ: ${s.epPrice.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`}).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
+  $('#ownerPayments').innerHTML=`<div class="payment-mode-grid">${shown.map(d=>{const s=subscriptionSettings(d.payment_settings),mode=paymentMode(d.payment_mode),free=mode==='free_park',paid=mode==='subscription',hasCheckout=Boolean(s.paymentUrl15||s.paymentUrl30||s.checkoutUrl||s.paymentUrl);const status=free?'Оплата не требуется':paid?(hasCheckout?'YooKassa подключена':'Оплата недоступна — обратитесь в парк'):'Баланс пополняет админ';const terms=free?'<strong>Бесплатно для водителей</strong>':paid?`<strong>${s.price15.toLocaleString('ru-RU')} ₽ / 15 дн · ${s.price30.toLocaleString('ru-RU')} ₽ / 30 дн</strong>`:`<strong>ЭПЛ: ${s.epPrice.toLocaleString('ru-RU')} ₽</strong>`;return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[mode]}</b><span>${status}</span></div><div><small>Условия</small>${terms}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`}).join('')||'<article class="card empty-card">Админов пока нет</article>'}</div>`;
   document.querySelectorAll('#ownerPayments .dispatcher-edit').forEach(b=>b.onclick=()=>openDispatcher(b.dataset.id));
 }
 
@@ -233,11 +240,13 @@ function dispatcherCard(d){
   const provider=PAYMENT_PROVIDERS[d.payment_provider]||PAYMENT_PROVIDERS.none;
   const s=subscriptionSettings(d.payment_settings);
   const free=paymentMode(d.payment_mode)==='free_park';
+  const paid=paymentMode(d.payment_mode)==='subscription';
   const privateAdmin=boolValue(d.hidden_from_directors);
+  const payText=free?'без оплаты':paid?`${provider} · ${s.price15} ₽ / 15 дн`:`ЭПЛ ${s.epPrice} ₽ через баланс`;
   return `<article class="card dispatcher-card ${d.active?'':'disabled'} ${privateAdmin?'private-admin':''}">
     <div class="dispatcher-main">
       <div class="identity"><span class="avatar">${(d.name||'?').trim()[0]||'?'}</span><button class="admin-name dispatcher-details" data-id="${d.id}" type="button"><b>${d.name}</b><small>${d.phone||'телефон не указан'}</small></button></div>
-      <div class="access"><div><small>Почта</small><b>${d.email||d.login||'—'}</b><span>${d.login||''}</span></div><div><small>Водителей</small><b>${count}</b></div><div><small>Оплата</small><b>${mode}</b><span>${free?'без оплаты':`ЭПЛ ${s.epPrice} ₽ через баланс`}</span></div></div>
+      <div class="access"><div><small>Почта</small><b>${d.email||d.login||'—'}</b><span>${d.login||''}</span></div><div><small>Водителей</small><b>${count}</b></div><div><small>Оплата</small><b>${mode}</b><span>${payText}</span></div></div>
       <span class="count ${d.active?'ok':'off'}">${d.active?'доступ открыт':'доступ закрыт'}</span>
       ${privateAdmin?'<span class="private-badge">Скрыт от директоров</span>':''}
     </div>
@@ -361,6 +370,7 @@ function openDispatcher(id=''){
   if(form.elements.payment_provider)form.elements.payment_provider.value='none';
   if(form.elements.price15)form.elements.price15.value='0';
   if(form.elements.price30)form.elements.price30.value='0';
+  ['paymentUrl','checkoutUrl','paymentUrl15','paymentUrl30','yookassaReturnUrl','shopId','secretKey','account','successUrl','failUrl'].forEach(k=>{if(form.elements[k])form.elements[k].value=''});
   form.elements.epPrice.value='0';
   const dataSection=form.querySelector('.admin-data-box'),paymentSection=form.querySelector('.payment-settings-box');
   if(dataSection&&paymentSection)form.insertBefore(ownerPage==='payments'?paymentSection:dataSection,ownerPage==='payments'?dataSection:paymentSection);
@@ -379,7 +389,7 @@ function fillDispatcherForm(d){
   if(form.elements.hidden_from_directors)form.elements.hidden_from_directors.checked=boolValue(d.hidden_from_directors);
   const settings=subscriptionSettings(d.payment_settings||{});
   if(form.elements.payment_mode)form.elements.payment_mode.value=paymentMode(d.payment_mode);
-  ['shopId','secretKey','account','successUrl','failUrl','price15','price30','epPrice'].forEach(k=>{if(form.elements[k])form.elements[k].value=settings[k]||''});
+  ['shopId','secretKey','account','successUrl','failUrl','paymentUrl','checkoutUrl','paymentUrl15','paymentUrl30','yookassaReturnUrl','price15','price30','epPrice'].forEach(k=>{if(form.elements[k])form.elements[k].value=settings[k]||''});
   $('.dispatcher-dialog-toggle').textContent=d.active?'Закрыть доступ':'Открыть доступ';
   updatePaymentFields();
 }
@@ -401,8 +411,8 @@ form.onsubmit=async e=>{
   d.active=d.active==='true';
   d.hidden_from_directors=directorIsMain()&&!!form.elements.hidden_from_directors?.checked;
   d.payment_mode=paymentMode(d.payment_mode);
-  d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',price15:d.price15,price30:d.price30,epPrice:d.epPrice});
-  ['shopId','secretKey','account','successUrl','failUrl','price15','price30','epPrice'].forEach(k=>delete d[k]);
+  d.payment_settings=subscriptionSettings({shopId:d.shopId||'',secretKey:d.secretKey||'',account:d.account||'',successUrl:d.successUrl||'',failUrl:d.failUrl||'',paymentUrl:d.paymentUrl||'',checkoutUrl:d.checkoutUrl||'',paymentUrl15:d.paymentUrl15||'',paymentUrl30:d.paymentUrl30||'',yookassaReturnUrl:d.yookassaReturnUrl||'',price15:d.price15,price30:d.price30,epPrice:d.epPrice});
+  ['shopId','secretKey','account','successUrl','failUrl','paymentUrl','checkoutUrl','paymentUrl15','paymentUrl30','yookassaReturnUrl','price15','price30','epPrice'].forEach(k=>delete d[k]);
   if(d.payment_mode==='free_park'||d.payment_mode==='admin_balance')d.payment_provider='none';
   if(dispatchers.some(x=>x.login===d.login&&x.id!==editingDispatcherId)){alert('Такой логин уже используется');return}
   if(editingDispatcherId){
@@ -436,10 +446,11 @@ async function toggleDispatcher(id){
 async function deleteDispatcher(id){
   const d=dispatchers.find(x=>x.id===id);
   if(!d)return false;
-  if(!confirm(`Удалить доступ админа ${d.name}?\n\nВодители не удалятся, удалится только вход в админский кабинет.`))return false;
+  if(!confirm(`Удалить админа ${d.name}?\n\nВместе с админом будут удалены его водители из облачного доступа, чтобы их можно было подключить к другой админке.`))return false;
   dispatchers=dispatchers.filter(x=>x.id!==id);
   saveDispatchersLocal();
   await deleteDispatcherRemote(id).catch(error=>console.warn('Не удалось удалить админа из Supabase',error));
+  await deleteDispatcherDriverProfiles(id).catch(error=>console.warn('Не удалось удалить водителей админа из Supabase',error));
   render();
   return true;
 }

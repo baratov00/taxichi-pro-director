@@ -1,14 +1,14 @@
 /*
   Stable desktop layout for the director cabinet.
-  Small laptop screens get the same cabinet size with horizontal scroll instead
-  of a compressed mobile/tablet layout.
+  Desktop keeps the familiar cabinet proportions, while small laptop screens
+  adapt instead of stretching the whole site to a giant 1536px canvas.
 */
-:root{--taxichi-director-width:1536px;--taxichi-sidebar-width:250px}
-html{min-width:var(--taxichi-director-width);overflow-x:auto;background:#f4f5f6}
-body{min-width:var(--taxichi-director-width);overflow-x:auto}
-.app{min-width:var(--taxichi-director-width);width:max(100vw,var(--taxichi-director-width))}
+:root{--taxichi-director-width:1180px;--taxichi-sidebar-width:250px}
+html{min-width:0;overflow-x:auto;background:#f4f5f6}
+body{min-width:0;overflow-x:hidden}
+.app{min-width:0;width:100%}
 aside{width:var(--taxichi-sidebar-width)!important;padding:25px 18px!important}
-main{margin-left:var(--taxichi-sidebar-width)!important;width:max(calc(100vw - var(--taxichi-sidebar-width)),calc(var(--taxichi-director-width) - var(--taxichi-sidebar-width)))!important;min-height:100vh;padding:35px 42px!important}
+main{margin-left:var(--taxichi-sidebar-width)!important;width:calc(100vw - var(--taxichi-sidebar-width))!important;min-height:100vh;padding:35px 42px!important;max-width:calc(100% - var(--taxichi-sidebar-width))}
 .brand-copy,nav,.account span,.account b{display:grid!important}
 nav{display:flex!important}
 nav button,nav a{padding:13px!important;border-radius:7px!important;font-size:15px!important}
@@ -35,8 +35,13 @@ h1{font-size:31px!important}
 .edit-actions button{flex:0 0 auto!important}
 dialog{max-height:90vh;overflow:auto}
 
-@media(max-width:1535px){
-  html,body{width:var(--taxichi-director-width)}
+@media(max-width:1180px){
+  main{padding:28px 24px!important}
+  .dispatcher-card{overflow-x:auto!important}
+  .dispatcher-main{grid-template-columns:minmax(190px,.9fr) minmax(360px,1.4fr) auto!important}
+  .access{min-width:520px!important;grid-template-columns:repeat(3,minmax(130px,1fr))!important}
+  .payment-admin-card{grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) minmax(160px,.8fr) auto!important}
+  .analytics-table{min-width:900px!important}
 }
 
 @media(max-width:760px){

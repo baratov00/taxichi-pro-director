@@ -68,8 +68,22 @@
       <div class="form-grid">
         <label>Тип оплаты<select name="payment_mode">
           <option value="free_park">Для таксопарков</option>
+          <option value="subscription">Платеж по подписке</option>
           <option value="admin_balance">Пополнить через админку</option>
         </select></label>
+        <label class="paid-only hidden">Провайдер<select name="payment_provider">
+          <option value="none">Без провайдера</option>
+          <option value="robokassa">Robokassa</option>
+          <option value="yookassa">ЮKassa</option>
+        </select></label>
+        <label class="paid-only hidden">Цена 15 дней<input name="price15" type="number" min="0" step="1" value="0"></label>
+        <label class="paid-only hidden">Цена 30 дней<input name="price30" type="number" min="0" step="1" value="0"></label>
+        <label class="paid-only hidden">Лицевой счет<input name="account" placeholder="Номер лицевого счета"></label>
+        <label class="paid-only hidden">YooKassa Shop ID<input name="shopId" placeholder="ID магазина"></label>
+        <label class="paid-only hidden">YooKassa Secret/API key<input name="secretKey" placeholder="Ключ для серверной проверки"></label>
+        <label class="paid-only hidden">Ссылка оплаты 15 дней<input name="paymentUrl15" type="url" placeholder="https://..."></label>
+        <label class="paid-only hidden">Ссылка оплаты 30 дней<input name="paymentUrl30" type="url" placeholder="https://..."></label>
+        <label class="paid-only hidden">Return URL<input name="yookassaReturnUrl" type="url" placeholder="https://..."></label>
         <label class="admin-balance-only hidden">Цена за выпуск ЭПЛ<input name="epPrice" type="number" min="0" step="1" value="0"></label>
       </div>
     </section>

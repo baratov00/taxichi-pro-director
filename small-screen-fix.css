@@ -1,0 +1,59 @@
+/*
+  Small laptop safety layer.
+  The sidebar becomes compact and scrolls separately; wide cards/sections keep
+  their own horizontal scroll so action buttons stay reachable.
+*/
+@media (max-width:1360px) and (min-width:761px){
+  html,body{overflow-x:hidden!important}
+  aside{
+    width:96px!important;
+    padding:16px 10px 76px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  .brand{justify-content:center!important;margin:0 0 18px!important}
+  .brand img{width:42px!important;height:42px!important}
+  .brand-copy,.account b,.account span{display:none!important}
+  nav{gap:8px!important}
+  nav button,nav a{
+    justify-content:center!important;
+    min-height:48px!important;
+    padding:10px 8px!important;
+    font-size:0!important;
+  }
+  main{
+    margin-left:96px!important;
+    width:calc(100vw - 96px)!important;
+    max-width:calc(100vw - 96px)!important;
+    padding:24px 22px!important;
+    overflow-x:hidden!important;
+  }
+  header{gap:14px!important}
+  h1{font-size:28px!important}
+  .dispatcher-list,
+  .owner-payments-panel,
+  .owner-cabinet-panel,
+  .owner-analytics-panel{
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:auto!important;
+    overflow-y:visible!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  .dispatcher-card,
+  .payment-admin-card,
+  .director-card,
+  .cabinet-head,
+  .balance-driver-row{
+    min-width:900px!important;
+  }
+  .analytics-table{min-width:980px!important}
+  .dispatcher-main{min-width:760px!important}
+  .dispatcher-actions{justify-content:flex-start!important;flex-wrap:nowrap!important}
+  .dispatcher-actions button{white-space:nowrap!important}
+  dialog,#ownerResetDialog,#adminDetailsDialog{
+    max-width:calc(100vw - 120px)!important;
+    max-height:calc(100vh - 30px)!important;
+    overflow:auto!important;
+  }
+}

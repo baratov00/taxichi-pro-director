@@ -1,5 +1,5 @@
 @media(max-width:760px){
-  html,body{background:#f4f5f6!important;overflow-x:hidden!important}
+  html,body{background:#f4f5f6!important;overflow-x:auto!important}
   body{padding-bottom:82px!important}
   .app{display:block!important}
   aside{
@@ -15,12 +15,12 @@
     padding:6px 7px!important;border-radius:16px!important;font-size:11px!important;line-height:1.1!important;text-align:center!important;
   }
   nav .active,nav button.active{background:#ffd21c!important;color:#17191c!important}
-  main{margin-left:0!important;width:100%!important;max-width:none!important;padding:18px 12px 100px!important}
+  main{margin-left:0!important;width:100%!important;max-width:none!important;padding:18px 12px 100px!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
   header{display:grid!important;gap:12px!important;align-items:stretch!important}
   h1{font-size:29px!important;letter-spacing:-.04em!important}
   header p{font-size:13px!important;line-height:1.35!important}
   #addDispatcher,.primary,.secondary,.danger,.cancel{width:100%!important;justify-content:center!important}
-  .dispatcher-list,.owner-payments-panel,.owner-cabinet-panel,.owner-analytics-panel{gap:12px!important;margin-top:14px!important;overflow:visible!important}
+  .dispatcher-list,.owner-payments-panel,.owner-cabinet-panel,.owner-analytics-panel{gap:12px!important;margin-top:14px!important;overflow-x:auto!important;overflow-y:visible!important;-webkit-overflow-scrolling:touch!important}
   .dispatcher-card,.payment-admin-card,.director-card,.cabinet-head,.balance-driver-row,.analytics-grid article{
     display:grid!important;grid-template-columns:1fr!important;gap:12px!important;padding:15px!important;border-radius:18px!important;
     background:#fff!important;box-shadow:0 8px 24px #1118270b!important;
@@ -48,4 +48,5 @@
   .form-grid,.admin-details-grid,.edit-actions,.actions{display:grid!important;grid-template-columns:1fr!important;gap:9px!important}
   input,select,textarea{font-size:16px!important;min-height:46px!important}
   .edit-actions button,.actions button{width:100%!important;min-height:46px!important}
+  .dispatcher-card,.payment-admin-card,.director-card,.cabinet-head,.balance-driver-row,.analytics-filter{min-width:0!important}
 }

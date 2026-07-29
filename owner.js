@@ -20,6 +20,12 @@ const paymentMode=value=>value==='free_park'?'free_park':value==='subscription'?
 const subscriptionSettings=value=>({price15:Number(value?.price15||0),price30:Number(value?.price30||0),epPrice:Number(value?.epPrice||0),account:value?.account||'',shopId:value?.shopId||'',secretKey:value?.secretKey||'',successUrl:value?.successUrl||'',failUrl:value?.failUrl||'',paymentUrl:value?.paymentUrl||value?.checkoutUrl||'',checkoutUrl:value?.checkoutUrl||value?.paymentUrl||'',paymentUrl15:value?.paymentUrl15||'',paymentUrl30:value?.paymentUrl30||'',yookassaReturnUrl:value?.yookassaReturnUrl||value?.successUrl||'',directorView:value?.directorView||null});
 const directorIsMain=()=>currentDirector?.can_manage_directors===true;
 const boolValue=value=>value===true||value==='true'||value===1||value==='1';
+async function fetchWithTimeout(url,options={},timeoutMs=10000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(url,{...options,signal:controller.signal,cache:'no-store'})}
+  finally{clearTimeout(timer)}
+}
 const normalizePaymentSettings=value=>{
   if(!value)return {};
   if(typeof value==='string'){try{return JSON.parse(value)}catch{return {}}}
@@ -129,7 +135,7 @@ async function adjustProfileBalance(profileId,direction){
   row.payload=payload;
   renderOwnerPayments();
 }
-async function remoteDirectors(){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS,cache:'no-store'});if(!response.ok)throw new Error(await response.text());return (await response.json()).map(normalizeDirector)}
+async function remoteDirectors(){const response=await fetchWithTimeout(`${API_BASE}/${DIRECTORS_TABLE}?select=*&order=created_at.asc`,{headers:API_HEADERS},10000);if(!response.ok)throw new Error(await response.text());return (await response.json()).map(normalizeDirector)}
 async function saveDirectorRemote(d){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?on_conflict=id`,{method:'POST',headers:{...API_HEADERS,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(directorPayload(d))});if(!response.ok)throw new Error(await response.text())}
 async function deleteDirectorRemote(id){const response=await fetch(`${API_BASE}/${DIRECTORS_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...API_HEADERS,'Prefer':'return=minimal'}});if(!response.ok)throw new Error(await response.text())}
 async function loadDirectorsRemote(){try{const remote=await remoteDirectors();if(remote.length){directors=remote;saveDirectorsLocal()}}catch(error){console.warn('Не удалось загрузить директоров из Supabase',error)}}
@@ -144,23 +150,24 @@ async function taxichiAuth(action,payload){
   return result;
 }
 function enter(director,sessionToken=''){currentDirector=director||directors[0]||DEFAULT_DIRECTORS[0];if(sessionToken){currentDirectorSessionToken=sessionToken;sessionStorage.setItem('taxichiDirectorSessionToken',sessionToken)}sessionStorage.setItem('taxichiOwnerSession',currentDirector.email);$('#ownerLogin').classList.add('hidden');$('#ownerApp').classList.remove('hidden');document.querySelector('.account b').textContent=currentDirector.name||'Директор';document.querySelector('.account span').textContent=currentDirector.can_manage_directors?'Главный директор':'Директор';if(!directorIsMain()&&ownerPage==='cabinet')ownerPage='admins';render();loadDriverCountsRemote()}
+function warmDirectorAuth(email,password){
+  taxichiAuth('directorLogin',{email,password}).then(result=>{
+    if(result?.sessionToken){
+      currentDirectorSessionToken=result.sessionToken;
+      sessionStorage.setItem('taxichiDirectorSessionToken',result.sessionToken);
+    }
+  }).catch(error=>console.warn('Фоновая серверная сессия директора не получена',error));
+}
 
 $('#ownerLoginForm').onsubmit=async e=>{
   e.preventDefault();
   await loadDirectorsRemote();await ensureMainDirector();
   const d=Object.fromEntries(new FormData(e.target)),email=String(d.email||'').trim().toLowerCase();
-  let director=null,sessionToken='';
-  try{
-    const result=await taxichiAuth('directorLogin',{email,password:d.password});
-    director=result.director?normalizeDirector(result.director,0):null;
-    sessionToken=result.sessionToken||'';
-  }catch(error){
-    console.warn('Серверный вход директора не удался, используем временный прямой режим',error);
-    director=directors.find(x=>x.email===email&&x.password===d.password&&x.active!==false);
-  }
+  const director=directors.find(x=>x.email===email&&x.password===d.password&&x.active!==false);
   if(director){
     $('#ownerError').textContent='';
-    enter(director,sessionToken);
+    enter(director,currentDirectorSessionToken);
+    warmDirectorAuth(email,d.password);
   }else $('#ownerError').textContent='Неверный логин или пароль';
 };
 const savedOwnerSession=sessionStorage.getItem('taxichiOwnerSession');if(savedOwnerSession){currentDirector=directors.find(d=>d.email===savedOwnerSession)||directors[0];enter(currentDirector)}

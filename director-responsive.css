@@ -44,6 +44,39 @@ dialog{max-height:90vh;overflow:auto}
   .analytics-table{min-width:900px!important}
 }
 
+@media(max-width:1180px) and (min-width:761px){
+  :root{--taxichi-sidebar-width:210px!important}
+  aside{width:210px!important;padding:18px 14px!important}
+  main{margin-left:210px!important;width:calc(100vw - 210px)!important;max-width:calc(100% - 210px)!important;padding:22px 20px!important}
+  .brand{margin-bottom:22px!important}
+  .brand-copy b{font-size:18px!important}
+  .brand-copy small{font-size:11px!important}
+  nav button,nav a{padding:10px 11px!important;font-size:13px!important}
+  h1{font-size:26px!important}
+  header p{font-size:13px!important;margin:5px 0 0!important}
+  .dispatcher-main{grid-template-columns:minmax(170px,.85fr) minmax(320px,1.35fr) auto!important;gap:9px!important}
+  .access{min-width:460px!important;grid-template-columns:repeat(3,minmax(118px,1fr))!important}
+  .access div{min-height:58px!important;padding:8px!important}
+  .dispatcher-actions button{padding:8px 10px!important;font-size:13px!important}
+  .payment-admin-card{grid-template-columns:minmax(165px,1fr) minmax(165px,1fr) minmax(145px,.8fr) auto!important;padding:13px!important;gap:10px!important}
+  .analytics-grid{grid-template-columns:repeat(2,minmax(150px,1fr))!important}
+  .analytics-table{min-width:820px!important}
+}
+
+@media(max-width:900px) and (min-width:761px){
+  :root{--taxichi-sidebar-width:82px!important}
+  aside{width:82px!important;padding:16px 10px!important}
+  main{margin-left:82px!important;width:calc(100vw - 82px)!important;max-width:calc(100% - 82px)!important;padding:18px 16px!important}
+  .brand{justify-content:center!important;margin-bottom:18px!important}
+  .brand-copy,.account b,.account span{display:none!important}
+  nav button,nav a{justify-content:center!important;padding:10px 8px!important;min-height:44px!important;font-size:0!important}
+  header{align-items:flex-start!important;flex-direction:column!important}
+  .dispatcher-main{grid-template-columns:1fr!important}
+  .access{min-width:0!important;grid-template-columns:1fr!important}
+  .dispatcher-actions{display:grid!important;grid-template-columns:1fr 1fr!important}
+  .payment-admin-card,.director-card,.cabinet-head,.balance-driver-row{grid-template-columns:1fr!important}
+}
+
 @media(max-width:760px){
   html,body{min-width:0!important;width:auto!important;overflow-x:hidden!important}
   .app{display:block!important;min-width:0!important;width:100%!important}

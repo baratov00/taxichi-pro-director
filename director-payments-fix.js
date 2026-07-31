@@ -3,7 +3,11 @@
     const s=subscriptionSettings(d.payment_settings);
     const mode=paymentMode(d.payment_mode);
     const free=mode==='free_park';
-    return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[mode]}</b><span>${free?'Оплата не требуется':'Баланс пополняет админ'}</span></div><div><small>Условия</small>${free?'<strong>Бесплатно для водителей</strong>':`<strong>ЭПЛ: ${s.epPrice.toLocaleString('ru-RU')} ₽</strong>`}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`;
+    const paid=mode==='subscription';
+    const hasCheckout=Boolean(s.paymentUrl15||s.paymentUrl30||s.checkoutUrl||s.paymentUrl);
+    const status=free?'Оплата не требуется':paid?(hasCheckout?'Оплата по ссылке подключена':'Ссылка оплаты не указана'):'Баланс пополняет админ';
+    const terms=free?'<strong>Бесплатно для водителей</strong>':paid?`<strong>${Number(s.price15||0).toLocaleString('ru-RU')} ₽ / 15 дн · ${Number(s.price30||0).toLocaleString('ru-RU')} ₽ / 30 дн</strong>`:`<strong>ЭПЛ: ${s.epPrice.toLocaleString('ru-RU')} ₽</strong>`;
+    return `<article class="payment-admin-card"><div><small>Админ</small><h3>${d.name||'Админ'}</h3><p>${d.login||'—'} · ${d.phone||'—'}</p></div><div><small>Тип оплаты</small><b>${PAYMENT_MODES[mode]}</b><span>${status}</span></div><div><small>Условия</small>${terms}</div><button class="secondary dispatcher-edit" data-id="${d.id}">Настроить платежи</button></article>`;
   }
 
   window.renderOwnerPayments=async function(){

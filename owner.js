@@ -416,8 +416,8 @@ function openDispatcher(id=''){
   if(hiddenField)hiddenField.classList.toggle('hidden',!directorIsMain());
   form.elements.payment_mode.value='free_park';
   if(form.elements.payment_provider)form.elements.payment_provider.value='none';
-  if(form.elements.price15)form.elements.price15.value='0';
-  if(form.elements.price30)form.elements.price30.value='0';
+  if(form.elements.price15)form.elements.price15.value='500';
+  if(form.elements.price30)form.elements.price30.value='1000';
   ['paymentUrl','checkoutUrl','paymentUrl15','paymentUrl30','yookassaReturnUrl','shopId','secretKey','account','successUrl','failUrl'].forEach(k=>{if(form.elements[k])form.elements[k].value=''});
   form.elements.epPrice.value='0';
   const dataSection=form.querySelector('.admin-data-box'),paymentSection=form.querySelector('.payment-settings-box');
@@ -449,6 +449,14 @@ function updatePaymentFields(){
   form.querySelectorAll('.paid-only').forEach(el=>el.classList.toggle('hidden',!paid));
   form.querySelectorAll('.admin-balance-only').forEach(el=>el.classList.toggle('hidden',!adminBalance));
   if((!paid)&&form.elements.payment_provider)form.elements.payment_provider.value='none';
+  if(paid){
+    if(form.elements.payment_provider&&!form.elements.payment_provider.value)form.elements.payment_provider.value='yookassa';
+    if(form.elements.payment_provider&&form.elements.payment_provider.value==='none')form.elements.payment_provider.value='yookassa';
+    if(form.elements.price15&&!form.elements.price15.value)form.elements.price15.value='500';
+    if(form.elements.price30&&!form.elements.price30.value)form.elements.price30.value='1000';
+    if(form.elements.paymentUrl15&&!form.elements.paymentUrl15.value)form.elements.paymentUrl15.value='https://api.taxichi.pro/pay/test?days=15';
+    if(form.elements.paymentUrl30&&!form.elements.paymentUrl30.value)form.elements.paymentUrl30.value='https://api.taxichi.pro/pay/test?days=30';
+  }
 }
 form.elements.payment_mode.onchange=updatePaymentFields;
 
